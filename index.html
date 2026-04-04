@@ -176,6 +176,19 @@ body{font-family:system-ui,sans-serif;background:#062033;color:#fff;overflow:hid
 #ghost{position:fixed;pointer-events:none;z-index:9999;display:none;width:34px;height:48px;border-radius:6px;flex-direction:column;align-items:center;justify-content:center;gap:1px;border:2px solid #e8c84a;box-shadow:0 6px 20px rgba(0,0,0,.7);font-weight:900}
 
 @keyframes floatUp{0%{opacity:1;transform:translate(-50%,-50%) scale(.5)}15%{transform:translate(-50%,-50%) scale(1.2)}30%{transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-150%) scale(1)}}
+
+/* ── AVATAR ── */
+.avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;background:rgba(0,0,0,.4);border:2px solid rgba(255,255,255,.2);flex-shrink:0;}
+.active-player .avatar{border-color:#e8c84a;box-shadow:0 0 8px rgba(232,200,74,.6);}
+.avatar-pick{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
+.avatar-opt{width:44px;height:44px;border-radius:50%;font-size:26px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:2.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.07);transition:all .15s;overflow:hidden;}
+.avatar-opt.on{border-color:#e8c84a;transform:scale(1.1);box-shadow:0 0 0 2px #e8c84a;}
+.avatar-opt img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+.avatar-img{width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.2);}
+.active-player .avatar-img{border-color:#e8c84a;box-shadow:0 0 8px rgba(232,200,74,.6);}
+.bot-setup-row{display:flex;flex-direction:column;gap:6px;padding:10px;background:rgba(0,0,0,.2);border-radius:8px;margin-bottom:8px;}
+.bot-setup-header{font-size:10px;font-weight:700;color:#e8c84a;text-transform:uppercase;letter-spacing:.5px;}
+.bot-name-input{width:100%;border-radius:6px;padding:5px 8px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:12px;}
 </style>
 </head>
 <body>
@@ -218,6 +231,35 @@ body{font-family:system-ui,sans-serif;background:#062033;color:#fff;overflow:hid
       <button class="cb" data-v="40" onclick="pick(this,'acik-sure')">40</button>
     </div>
   </div>
+  <div class="s-card" style="margin-top:-4px;">
+    <span class="s-label">Rakip Ayarları</span>
+    <div id="bots-setup">
+      <!-- Bot 1 -->
+      <div class="bot-setup-row">
+        <div class="bot-setup-header">Rakip 1 (Sağ)</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+          <img src="https://raw.githubusercontent.com/prakdogart-lab/okey-oyunu/main/bot1.jpg" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid #e8c84a;">
+          <input class="bot-name-input" id="bname1" value="Hasan Doğan" placeholder="İsim gir..." style="flex:1;">
+        </div>
+      </div>
+      <!-- Bot 2 -->
+      <div class="bot-setup-row">
+        <div class="bot-setup-header">Rakip 2 (Üst)</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+          <img src="https://raw.githubusercontent.com/prakdogart-lab/okey-oyunu/main/bot2.jpg" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid #e8c84a;">
+          <input class="bot-name-input" id="bname2" value="Hasan Yıldız" placeholder="İsim gir..." style="flex:1;">
+        </div>
+      </div>
+      <!-- Bot 3 -->
+      <div class="bot-setup-row">
+        <div class="bot-setup-header">Rakip 3 (Sol)</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+          <img src="https://raw.githubusercontent.com/prakdogart-lab/okey-oyunu/main/bot3.jpg" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid #e8c84a;">
+          <input class="bot-name-input" id="bname3" value="Zekeriya İrey" placeholder="İsim gir..." style="flex:1;">
+        </div>
+      </div>
+    </div>
+  </div>
   <button class="start-btn" onclick="startGame()">Oyunu Başlat</button>
 </div>
 
@@ -228,6 +270,7 @@ body{font-family:system-ui,sans-serif;background:#062033;color:#fff;overflow:hid
   <!-- SOL ŞERIT: Bot 3 -->
   <div class="side-strip left">
     <div class="opp-info player-info" id="pinfo-3">
+      <img class="avatar-img" id="av-3" src="https://raw.githubusercontent.com/prakdogart-lab/okey-oyunu/main/bot3.jpg" alt="Rakip 3">
       <div class="opp-name pname" id="n3">Bot 3</div>
       <div class="opp-score pscore" id="s3">0</div>
       <div class="opp-timer p-timer" id="timer-3"></div>
@@ -260,6 +303,7 @@ body{font-family:system-ui,sans-serif;background:#062033;color:#fff;overflow:hid
           <div class="disc-pile-opp" id="disc-opp2" style="width:28px;height:38px;" title="Taşı al"><span style="font-size:7px;color:rgba(255,255,255,.25)">atık</span></div>
           <div class="bot2-rack" id="h2"></div>
           <div class="opp-info player-info" id="pinfo-2" style="flex-direction:row;gap:6px;padding:2px 8px;">
+            <img class="avatar-img" id="av-2" src="https://raw.githubusercontent.com/prakdogart-lab/okey-oyunu/main/bot2.jpg" alt="Rakip 2" style="width:28px;height:28px;">
             <div class="opp-name pname" id="n2">Bot 2</div>
             <div class="opp-score pscore" id="s2">0</div>
             <div class="opp-timer p-timer" id="timer-2"></div>
@@ -297,6 +341,7 @@ body{font-family:system-ui,sans-serif;background:#062033;color:#fff;overflow:hid
     <div class="disc-opp-v disc-pile-opp" id="disc-opp1" title="Taşı al"><span style="font-size:7px;color:rgba(255,255,255,.25)">atık</span></div>
     <div class="v-rack" id="h1"></div>
     <div class="opp-info player-info" id="pinfo-1">
+      <img class="avatar-img" id="av-1" src="https://raw.githubusercontent.com/prakdogart-lab/okey-oyunu/main/bot1.jpg" alt="Rakip 1">
       <div class="opp-name pname" id="n1">Bot 1</div>
       <div class="opp-score pscore" id="s1">0</div>
       <div class="opp-timer p-timer" id="timer-1"></div>
@@ -447,6 +492,11 @@ function spawnFloatingText(text, color) {
     setTimeout(() => ft.remove(), 2500);
 }
 
+function pickAv(el,g){
+  document.querySelectorAll('#'+g+' .avatar-opt').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+}
+function valAv(g){return document.querySelector('#'+g+' .avatar-opt.on')?.dataset.v||'🤖';}
 function pick(el,g){document.querySelectorAll('#'+g+' .cb').forEach(b=>b.classList.remove('on'));el.classList.add('on');}
 function val(g){return document.querySelector('#'+g+' .on')?.dataset.v}
 function setMsg(m){document.getElementById('msg').textContent=m;}
@@ -472,8 +522,15 @@ function startGame(){
   const acikTime = parseInt(val('acik-sure')||'30');     
   const pn=document.getElementById('pname').value.trim()||'Oyuncu';
 
+    const bn1=document.getElementById('bname1').value.trim()||'Rakip 1';
+  const bn2=document.getElementById('bname2').value.trim()||'Rakip 2';
+  const bn3=document.getElementById('bname3').value.trim()||'Rakip 3';
+  const bav1=valAv('av1'); const bav2=valAv('av2'); const bav3=valAv('av3');
+  // Avatar ve isim güncelle
+
+
   G={ 
-    diff, totalEl, acilisPuan, curEl:1, scores:[0,0,0,0], names:[pn,'Bot 1','Bot 2','Bot 3'],
+    diff, totalEl, acilisPuan, curEl:1, scores:[0,0,0,0], names:[pn,bn1,bn2,bn3],
     normalTime, acikTime, timeLeft: 0, mustUseTile: null, mustOpenThisTurn: false,
     deck:[], disc:[], grid:emptyGrid(), opp:[[],[],[]], okey:null, gosterge:null, turn:0, phase:'discard', sel:null,
     acildi:[false,false,false,false], tableGroups:[], playerDisc:[], oppDisc:[[],[],[]], hiddenOkeys:new Set(), eldenBiten:false, okeyBiten:false,
@@ -481,6 +538,9 @@ function startGame(){
   };
   
   document.getElementById('n0').textContent=pn; document.getElementById('sc-n0').textContent=pn+":";
+  document.getElementById('n1').textContent=bn1; document.getElementById('sc-n1').textContent=bn1+":";
+  document.getElementById('n2').textContent=bn2; document.getElementById('sc-n2').textContent=bn2+":";
+  document.getElementById('n3').textContent=bn3; document.getElementById('sc-n3').textContent=bn3+":";
   document.getElementById('acilis-chip').textContent='Açılış: '+acilisPuan+'p';
   document.getElementById('setup').style.display='none'; 
   document.getElementById('game').style.display='flex';
