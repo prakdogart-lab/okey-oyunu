@@ -2,8 +2,8 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>// ═══════════════════════════════════
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
+// ═══════════════════════════════════
 // GERÇEK ZAMANLI ÇOK OYUNCULU SİSTEM
 // ═══════════════════════════════════
 
@@ -655,7 +655,7 @@ function lobiyeDon() {
   }
 }
 
-let lastMasaNo = null;
+// lastMasaNo yukarıda tanımlı
 
 function showGeriDonBtn(masaNo) {
   if(!masaNo) return;
@@ -1238,24 +1238,65 @@ body{font-family:system-ui,sans-serif;background:#062033;color:#fff;overflow:hid
  </div></div>
 <script>
 // --- LOBİ VE MASALARIN OLUŞTURULMASI ---
-function initLobby() {
+async function initLobby() {
     const grid = document.getElementById('tables-grid');
+    grid.innerHTML = '<div style="color:rgba(255,255,255,.4);font-size:13px;text-align:center;padding:20px;grid-column:1/-1;">Masalar yükleniyor...</div>';
+    
+    const {data: rooms} = await supa.from('rooms').select('*').order('masa_no');
+    const roomMap = {};
+    if(rooms) rooms.forEach(r => roomMap[r.masa_no] = r);
+    
     grid.innerHTML = '';
+    
     for(let i=1; i<=40; i++) {
-        // Rastgele izleyiciler/oyuncular (görsellik katmak için eklenebilir ama şu an sade tutuldu)
-        grid.innerHTML += `
-            <div class="masa-wrapper">
-                <div class="masa-board">
-                    <span>Masa ${i}</span>
-                    <small>10.000 🪙</small>
-                </div>
-                <div class="oyna-btn seat-top" onclick="openSetup(${i})">OYNA</div>
-                <div class="oyna-btn seat-bottom" onclick="openSetup(${i})">OYNA</div>
-                <div class="oyna-btn seat-left" onclick="openSetup(${i})">OYNA</div>
-                <div class="oyna-btn seat-right" onclick="openSetup(${i})">OYNA</div>
-                <div style="position:absolute;bottom:-22px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.7);font-size:10px;padding:3px 10px;border-radius:10px;cursor:pointer;white-space:nowrap;" onclick="izleMasaYeniSekme(${i})">👁 İzle</div>
-            </div>
-        `;
+        const room = roomMap[i];
+        const seats = room ? [
+            {user: room.seat0_user, name: room.seat0_name},
+            {user: room.seat1_user, name: room.seat1_name},
+            {user: room.seat2_user, name: room.seat2_name},
+            {user: room.seat3_user, name: room.seat3_name}
+        ] : [{},{},{},{}];
+        
+        const doluSayisi = seats.filter(s => s.user && !s.user.startsWith('bot-')).length;
+        const status = room ? room.status : 'waiting';
+        const colors = ['#e8c84a','#88ccff','#ff8888','#88ff88'];
+        
+        function makeSeatBtn(seat, posClass, idx) {
+            if(seat.user && !seat.user.startsWith('bot-')) {
+                const initial = (seat.name||'?').charAt(0).toUpperCase();
+                const c = colors[idx];
+                return '<div class="oyna-btn '+posClass+'" style="background:'+c+'22;border-color:'+c+';color:'+c+';font-size:11px;flex-direction:column;gap:1px;cursor:default;" title="'+(seat.name||'Oyuncu')+'"><span style="font-size:18px;font-weight:900;">'+initial+'</span><span style="font-size:8px;max-width:50px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(seat.name||'').split(' ')[0]+'</span></div>';
+            } else if(seat.user && seat.user.startsWith('bot-')) {
+                return '<div class="oyna-btn '+posClass+'" style="background:rgba(128,0,128,.2);border-color:#a020a0;color:#cc88ff;cursor:default;" title="Bot">🤖</div>';
+            } else {
+                return '<div class="oyna-btn '+posClass+'" onclick="openSetup('+i+')">OYNA</div>';
+            }
+        }
+        
+        const badge = status === 'playing'
+            ? '<div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:#22aa44;color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:8px;white-space:nowrap;">🎮 Oyunda</div>'
+            : doluSayisi > 0
+            ? '<div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:#e8c84a;color:#1a1a00;font-size:9px;font-weight:700;padding:2px 8px;border-radius:8px;white-space:nowrap;">'+doluSayisi+'/4 Oyuncu</div>'
+            : '';
+        
+        const wrapper = document.createElement('div');
+        wrapper.className = 'masa-wrapper';
+        wrapper.style.cssText = 'position:relative;padding-bottom:28px;';
+        wrapper.innerHTML = badge +
+            '<div class="masa-board"><span>Masa '+i+'</span><small>'+(doluSayisi > 0 ? doluSayisi+'/4' : 'Boş')+'</small></div>' +
+            makeSeatBtn(seats[0], 'seat-top', 0) +
+            makeSeatBtn(seats[1], 'seat-bottom', 1) +
+            makeSeatBtn(seats[2], 'seat-left', 2) +
+            makeSeatBtn(seats[3], 'seat-right', 3) +
+            '<div style="position:absolute;bottom:-22px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.7);font-size:10px;padding:3px 10px;border-radius:10px;cursor:pointer;white-space:nowrap;" onclick="izleMasaYeniSekme('+i+')">👁 İzle</div>';
+        grid.appendChild(wrapper);
+    }
+    
+    // Realtime lobi güncellemesi - 10sn'de bir yenile
+    if(!window._lobiRefreshInterval) {
+        window._lobiRefreshInterval = setInterval(() => {
+            if(document.getElementById('lobby').style.display !== 'none') initLobby();
+        }, 10000);
     }
 }
 // Sayfa yüklenince lobiyi oluştur
