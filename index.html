@@ -1250,6 +1250,28 @@ async function initLobby() {
         ] : [{},{},{},{}];
         
         const doluSayisi = seats.filter(s => s.user && !s.user.startsWith('bot-')).length;
+        
+        // ÇÖP TOPLAYICI (GARBAGE COLLECTOR) - GELİŞMİŞ ZOMBİ TESPİTİ
+        const now = Date.now();
+        const gameState = room ? room.game_state : null;
+        const lastAction = gameState && gameState.last_action ? gameState.last_action : now;
+        
+        // YENİ GÜNCELLEME: Eğer 120 saniye (120.000 ms) boyunca kimse taş atmamışsa masa donmuştur
+        const isFrozen = (now - lastAction) > 120000; 
+
+        // Masada hiç insan yoksa VEYA masa zombiye dönmüşse (isFrozen)
+        if (room && room.status === 'playing' && (doluSayisi === 0 || isFrozen)) {
+            supa.from('rooms').update({
+                status: 'waiting', game_state: null, current_turn: 0,
+                seat0_user: null, seat0_name: null, seat1_user: null, seat1_name: null,
+                seat2_user: null, seat2_name: null, seat3_user: null, seat3_name: null
+            }).eq('id', room.id).then(()=>{});
+            
+            // Lobiyi açan kişiye masayı anında boş göster
+            room.status = 'waiting';
+            for(let k=0; k<4; k++) { seats[k].user = null; seats[k].name = null; }
+        }
+
         const status = room ? room.status : 'waiting';
         const colors = ['#e8c84a','#88ccff','#ff8888','#88ff88'];
         
