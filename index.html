@@ -5,8 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
 function goToLobby() {
-  // Oyun geçmişini kaydet
-  if(currentUser && G.scores) {
+  if(currentUser && G && G.scores) {
     const myScore = G.scores[0];
     const minScore = Math.min(...G.scores);
     const isWin = myScore === minScore;
@@ -15,8 +14,7 @@ function goToLobby() {
       result: isWin ? 'win' : 'lose',
       score_delta: myScore
     }).then(() => {
-      // Profil istatistiklerini güncelle
-      supa.rpc || supa.from('profiles').select('total_games,total_wins,total_score').eq('id', currentUser.id).single().then(({data}) => {
+      supa.from('profiles').select('total_games,total_wins,total_score').eq('id', currentUser.id).single().then(({data}) => {
         if(data) {
           supa.from('profiles').update({
             total_games: (data.total_games||0) + 1,
@@ -35,6 +33,26 @@ function goToLobby() {
   document.getElementById('chat-panel').classList.remove('open');
   currentRoomId = null;
   updateLobbyUserBar();
+}
+
+async function showProfile() {
+  if(!currentUser) { 
+    alert('Profil görüntülemek için giriş yapmanız gerekiyor.'); 
+    return; 
+  }
+  const { data, error } = await supa.from('profiles').select('*').eq('id', currentUser.id).single();
+  if(error || !data) { alert('Profil yüklenemedi.'); return; }
+  currentProfile = data;
+  const winRate = data.total_games ? Math.round((data.total_wins||0)/data.total_games*100) : 0;
+  document.getElementById('profile-content').innerHTML = `
+    <div class="profile-stat"><span>Kullanıcı Adı</span><b>${data.username}</b></div>
+    <div class="profile-stat"><span>Toplam Oyun</span><b>${data.total_games||0}</b></div>
+    <div class="profile-stat"><span>Kazanma</span><b style="color:#88ff88">${data.total_wins||0}</b></div>
+    <div class="profile-stat"><span>Kazanma Oranı</span><b>${winRate}%</b></div>
+    <div class="profile-stat"><span>Toplam Skor</span><b style="color:#ff8888">${data.total_score||0}</b></div>
+    <div class="profile-stat"><span>Üyelik Tarihi</span><b>${new Date(data.created_at).toLocaleDateString('tr-TR')}</b></div>
+  `;
+  document.getElementById('profile-modal').classList.add('show');
 }
 
 </script>
@@ -1816,38 +1834,6 @@ function botPlay(){
   if(G.acildi[G.turn]&&hand.length<=0){ G.okeyBiten = isOkey(atilan); endEl(G.turn); return; } nextTurn();
 }
 
-function goToLobby() {
-  // Oyun geçmişini kaydet
-  if(currentUser && G.scores) {
-    const myScore = G.scores[0];
-    const minScore = Math.min(...G.scores);
-    const isWin = myScore === minScore;
-    supa.from('game_history').insert({
-      user_id: currentUser.id,
-      result: isWin ? 'win' : 'lose',
-      score_delta: myScore
-    }).then(() => {
-      // Profil istatistiklerini güncelle
-      supa.rpc || supa.from('profiles').select('total_games,total_wins,total_score').eq('id', currentUser.id).single().then(({data}) => {
-        if(data) {
-          supa.from('profiles').update({
-            total_games: (data.total_games||0) + 1,
-            total_wins: (data.total_wins||0) + (isWin ? 1 : 0),
-            total_score: (data.total_score||0) + myScore
-          }).eq('id', currentUser.id);
-        }
-      });
-    });
-  }
-  document.getElementById('game').style.display = 'none';
-  document.getElementById('end-wrap').classList.remove('show');
-  document.getElementById('lobby').style.display = 'flex';
-  document.getElementById('chat-toggle').style.display = 'none';
-  chatOpen = false;
-  document.getElementById('chat-panel').classList.remove('open');
-  currentRoomId = null;
-  updateLobbyUserBar();
-}
 
 </script>
 </body>
