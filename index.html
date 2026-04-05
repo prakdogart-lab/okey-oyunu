@@ -661,9 +661,11 @@ document.addEventListener('visibilitychange', () => {
         if (G.turnEndTime) {
             G.timeLeft = Math.ceil((G.turnEndTime - now) / 1000);
             if (G.timeLeft <= 0) {
-                G.timeLeft = 0; updTimerUI();
+                G.timeLeft = 0; 
+                updTimerUI();
                 if(turnTimer) clearInterval(turnTimer);
-                if(G.turn === 0) autoPlayHuman();
+                // Sadece tur sendeyse ve oyun henüz bitmemişse otomatik hamle yap
+                if(G.turn === 0 && G.phase !== 'end') autoPlayHuman();
             } else {
                 updTimerUI();
             }
@@ -1331,6 +1333,7 @@ function addExtraTime() {
         G.turnEndTime = Date.now() + (G.acikTime * 1000);
         G.timeLeft = G.acikTime;
         updTimerUI();
+        if(isMultiplayer) saveGameState(); // Süre uzatımını anında diğer oyunculara bildir!
     }
 }
 
@@ -1442,13 +1445,13 @@ function updAcilisStatus() {
 }
 
 // YENİ ZAMAN DAMGASI İLE ÇALIŞAN SÜRE FONKSİYONU
+// YENİ ZAMAN DAMGASI İLE ÇALIŞAN SÜRE FONKSİYONU
 function startTimer() {
   if (turnTimer) clearInterval(turnTimer); 
   const duration = G.acildi[G.turn] ? G.acikTime : G.normalTime;
   
-  if (!isMultiplayer || G.turn === 0 || (isMultiplayer && amIHost() && isBotSeat((G.turn + mySeat)%4))) {
-      G.turnEndTime = Date.now() + (duration * 1000); 
-  }
+  // KISITLAMAYI KALDIRDIK: Sıra kimde olursa olsun, yeni tur için taze bir bitiş zamanı belirle
+  G.turnEndTime = Date.now() + (duration * 1000); 
 
   turnTimer = setInterval(() => { 
       if (!G.turnEndTime) return;
