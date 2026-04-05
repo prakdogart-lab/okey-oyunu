@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
 <script>
 // ═══════════════════════════════════
 // GERÇEK ZAMANLI ÇOK OYUNCULU SİSTEM
@@ -21,7 +21,15 @@ async function joinRoom(masaNo, settings) {
   
   myRoomId = rooms.id;
   const myName = (currentUser && currentProfile) ? currentProfile.username : (guestName || 'Misafir');
-  const myUserId = currentUser ? currentUser.id : ('guest-' + Date.now());
+  // Misafir ID'sini localStorage'da sakla - her seferinde aynı ID
+  let myUserId;
+  if(currentUser) {
+    myUserId = currentUser.id;
+  } else {
+    let guestId = localStorage.getItem('81okey_guest_id');
+    if(!guestId) { guestId = 'guest-' + Date.now(); localStorage.setItem('81okey_guest_id', guestId); }
+    myUserId = guestId;
+  }
   
   for(let i = 0; i < 4; i++) {
     if(rooms['seat' + i + '_user'] === myUserId) { alert('Bu masada zaten oturuyorsunuz!'); return false; }
@@ -2127,7 +2135,9 @@ function showAcPanel(){ if(G.turn!==0||G.phase!=='discard')return; acSelIds=[]; 
 function hideAcPanel(){ acSelIds=[]; document.getElementById('ac-panel').style.display='none'; renderRack(); }
 
 function renderAcPanel(){
-  const hand=getHand(), selTiles=hand.filter(t=>acSelIds.includes(t.id)), div=document.getElementById('ac-sel-tiles'); div.innerHTML='';
+  const div=document.getElementById('ac-sel-tiles');
+  if(!div) return; // Panel yüklenmemişse çık
+  const hand=getHand(), selTiles=hand.filter(t=>acSelIds.includes(t.id)); div.innerHTML='';
   selTiles.forEach(t=>{ const el=document.createElement('div');el.className='tile sm '+tCls(t); el.innerHTML=`<span class="tv">${tLabel(t)}</span><span class="tc">${tSub(t)}</span>`; div.appendChild(el); });
   let pts=0, validGroups=false, validPairs=false; const pairs=findPairGroups(selTiles); let valid = false;
   const minSeri = Math.max(G.acilisPuan, G.highestSeri + 1);
