@@ -103,10 +103,10 @@ function handleRoomUpdate(room) {
   // Kendi koltuğum boşaltıldı mı? (admin tarafından atıldım)
   if(isMultiplayer && mySeat >= 0) {
     const myCurrentSeat = room['seat' + mySeat + '_user'];
-    const myId = currentUser ? currentUser.id : ('guest-' + Date.now());
-    // Koltuk boş ya da başkasına verildi
-    if(!myCurrentSeat || (myCurrentSeat !== myId && !myCurrentSeat.startsWith('bot-'))) {
-      // Atıldım - oyunu kapat
+    // Kalıcı misafir ID'sini al
+    const myId = currentUser ? currentUser.id : localStorage.getItem('81okey_guest_id');
+    // Koltuk boşaldı VE ben burada değilim
+    if(myCurrentSeat === null && myId) {
       if(typeof turnTimer !== 'undefined') clearInterval(turnTimer);
       alert('Masadan çıkarıldınız!');
       window.close();
@@ -520,6 +520,34 @@ async function loadProfile() {
   if(data) currentProfile = data;
 }
 
+
+function doGuestGiris() {
+  // Mevcut misafir verilerini sil ve giriş ekranına git
+  doGuestCikis(false);
+}
+
+function doGuestCikis(confirm_needed = true) {
+  if(confirm_needed && !confirm('Misafir hesabından çıkılacak. Tüm veriler silinecek. Emin misiniz?')) return;
+  // Tüm localStorage temizle
+  localStorage.removeItem('81okey_guest');
+  localStorage.removeItem('81okey_guest_id');
+  localStorage.removeItem('81okey_gamemode');
+  // State sıfırla
+  guestName = '';
+  currentUser = null;
+  currentProfile = null;
+  currentRoomId = null;
+  // Auth ekranına git
+  document.getElementById('lobby').style.display = 'none';
+  document.getElementById('game').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+  // Giriş formunu temizle
+  const emailEl = document.getElementById('giris-email');
+  const sifreEl = document.getElementById('giris-sifre');
+  if(emailEl) emailEl.value = '';
+  if(sifreEl) sifreEl.value = '';
+}
+
 function updateMasaDurum(masaNo) {
   const el = document.getElementById('lobby-masa-durum');
   if(!el) return;
@@ -535,17 +563,26 @@ function showLobby() {
   const scoreEl = document.getElementById('lobby-score');
   const avEl = document.getElementById('lobby-avatar');
   const logoutBtn = document.getElementById('logout-btn');
+  const guestGirisBtn = document.getElementById('guest-giris-btn');
+  const guestCikisBtn = document.getElementById('guest-cikis-btn');
+  const profilBtn = document.getElementById('profil-btn');
   if(currentUser && currentProfile) {
     const lvl = getLevel(currentProfile.xp||0);
     nameEl.textContent = getLevelBadge(lvl.level) + ' ' + currentProfile.username;
     scoreEl.textContent = '⚡ ' + (currentProfile.rating||1000) + ' | Seviye ' + lvl.level + ' ' + lvl.name;
     avEl.textContent = currentProfile.username.charAt(0).toUpperCase();
     logoutBtn.style.display = '';
+    if(guestGirisBtn) guestGirisBtn.style.display = 'none';
+    if(guestCikisBtn) guestCikisBtn.style.display = 'none';
+    if(profilBtn) profilBtn.style.display = '';
   } else {
     nameEl.textContent = guestName || 'Misafir';
     scoreEl.textContent = 'Misafir — XP kazanılmaz';
     avEl.textContent = '👤';
     logoutBtn.style.display = 'none';
+    if(profilBtn) profilBtn.style.display = 'none';
+    if(guestGirisBtn) guestGirisBtn.style.display = '';
+    if(guestCikisBtn) guestCikisBtn.style.display = '';
   }
   initLobby();
 }
@@ -1127,8 +1164,10 @@ body{font-family:system-ui,sans-serif;background:#062033;color:#fff;overflow:hid
           <div id="lobby-score" style="font-size:11px;color:rgba(255,255,255,.5);"></div>
           <div id="lobby-masa-durum" style="font-size:11px;color:#88ff88;font-weight:700;display:none;"></div>
         </div>
-        <button onclick="showProfile()" style="padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;border:1px solid rgba(232,200,74,.5);background:rgba(232,200,74,.15);color:#e8c84a;">Profil</button>
+        <button onclick="showProfile()" id="profil-btn" style="padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;border:1px solid rgba(232,200,74,.5);background:rgba(232,200,74,.15);color:#e8c84a;">Profil</button>
         <button id="logout-btn" onclick="doLogout()" style="padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;border:1px solid rgba(255,0,0,.3);background:rgba(255,0,0,.15);color:#ff8888;">Çıkış</button>
+        <button id="guest-giris-btn" onclick="doGuestGiris()" style="display:none;padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;border:1px solid rgba(100,200,255,.4);background:rgba(100,200,255,.15);color:#88ddff;">Giriş Yap</button>
+        <button id="guest-cikis-btn" onclick="doGuestCikis()" style="display:none;padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;border:1px solid rgba(255,150,0,.4);background:rgba(255,150,0,.1);color:#ffaa44;">Yok Ol</button>
       </div>
   </div>
   <div class="tables-grid" id="tables-grid">
