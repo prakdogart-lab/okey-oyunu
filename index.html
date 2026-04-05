@@ -3,7 +3,159 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
+// ── OYUN MODU ──
+let gameMode = 'online'; // 'online' veya 'bot'
+let currentMasaNo = null;
+let isSpectating = false;
+let spectatorSub = null;
+let onlineRoomSub = null;
+let disconnectTimer = null;
+
+function pickMod(mod) {
+  gameMode = mod;
+  document.getElementById('mod-online').classList.toggle('on', mod==='online');
+  document.getElementById('mod-bot').classList.toggle('on', mod==='bot');
+  // Bot modunda bazı ayarlar gizle
+  const botSettings = document.getElementById('diffs').closest('.s-group');
+  if(mod==='online') {
+    document.querySelector('#mod-online').style.borderColor='#e8c84a';
+  }
+}
+
+// openSetup masaNo ile çağrılır
+function openSetup(masaNo) {
+  currentMasaNo = masaNo || 1;
+  // Giriş yapmış kullanıcının adını doldur
+  if(currentUser && currentProfile) {
+    document.getElementById('pname').value = currentProfile.username;
+  } else if(guestName) {
+    document.getElementById('pname').value = guestName;
+  }
+  document.getElementById('setup').style.display = 'flex';
+}
+
+// ── İZLEYİCİ MOD ──
+async function izleMasa(masaNo) {
+  isSpectating = true;
+  currentMasaNo = masaNo;
+  
+  // Spectator bar göster
+  document.getElementById('spectator-bar').classList.add('show');
+  document.getElementById('spec-masa-no').textContent = masaNo;
+  
+  // Lobi gizle, oyun göster (ıstakalar gizlenmiş)
+  document.getElementById('lobby').style.display = 'none';
+  document.getElementById('game').style.display = 'flex';
+  
+  // Oyunu readonly modda başlat (sadece masa görünür)
+  startSpectatorMode(masaNo);
+  
+  // Sohbete bağlan
+  const roomId = 'masa-' + masaNo;
+  currentRoomId = roomId;
+  subscribeToChatRoom(roomId);
+  document.getElementById('chat-toggle').style.display = 'flex';
+  
+  doResize();
+}
+
+function startSpectatorMode(masaNo) {
+  // Oyun alanını göster ama ıstakaları gizle
+  document.getElementById('rack-outer') && (document.querySelector('.rack-outer').style.visibility = 'hidden');
+  document.querySelectorAll('.acts-col').forEach(el => el.style.visibility = 'hidden');
+  document.querySelector('.bottom-area') && (document.querySelector('.bottom-area').style.opacity = '0.3');
+  
+  // Mode badge
+  const badge = document.getElementById('mode-badge');
+  badge.textContent = '👁 İzleme Modu — Masa ' + masaNo;
+  badge.style.display = 'block';
+  
+  setMsg('İzleme modundasın. Sohbete katılabilirsin.');
+}
+
+function stopSpectating() {
+  isSpectating = false;
+  document.getElementById('spectator-bar').classList.remove('show');
+  document.getElementById('mode-badge').style.display = 'none';
+  document.getElementById('game').style.display = 'none';
+  document.getElementById('chat-toggle').style.display = 'none';
+  document.getElementById('lobby').style.display = 'flex';
+  chatOpen = false;
+  document.getElementById('chat-panel').classList.remove('open');
+  if(spectatorSub) { supa.removeChannel(spectatorSub); spectatorSub = null; }
+  currentRoomId = null;
+}
+
+// ── CEZA SİSTEMİ (OYUNDAN KAÇANLAR) ──
+function startDisconnectPenaltyTimer() {
+  // Oyun başlayınca sayaç başlat
+  // Oyuncu 60 saniye içinde geri dönmezse ceza
+  if(!isOnlineGame() || !currentUser) return;
+  clearTimeout(disconnectTimer);
+}
+
+function onPlayerDisconnect() {
+  if(!isOnlineGame() || !currentUser) return;
+  disconnectTimer = setTimeout(() => {
+    applyDisconnectPenalty();
+  }, 60000); // 60 saniye
+}
+
+async function applyDisconnectPenalty() {
+  if(!currentUser) return;
+  const PENALTY_RATING = -50;
+  
+  // Rating düşür
+  const {data} = await supa.from('profiles').select('rating,xp').eq('id', currentUser.id).single();
+  if(data) {
+    const newRating = Math.max(800, (data.rating||1000) + PENALTY_RATING);
+    await supa.from('profiles').update({rating: newRating}).eq('id', currentUser.id);
+    await supa.from('penalties').insert({
+      user_id: currentUser.id,
+      reason: 'Oyundan erken çıkış',
+      rating_change: PENALTY_RATING
+    });
+    spawnFloatingText('⚠️ Ceza: ' + PENALTY_RATING + ' Rating', '#ff4444');
+  }
+}
+
+// Sayfa kapanınca ceza uygula
+window.addEventListener('beforeunload', (e) => {
+  if(isOnlineGame() && currentUser && G && G.phase !== 'end') {
+    // Beacon API ile ceza kaydı gönder
+    const data = JSON.stringify({user_id: currentUser.id});
+    navigator.sendBeacon && navigator.sendBeacon('/api/penalty', data);
+    // Not: Bu tam çalışmaz GitHub Pages'de, Supabase Realtime ile yapılacak
+    onPlayerDisconnect();
+  }
+});
+
+// ── ONLINE OYUN BAŞLATMA ──
+async function startOnlineGame() {
+  const pn = document.getElementById('pname').value.trim() || (currentProfile?.username) || guestName || 'Oyuncu';
+  
+  // Supabase'de oda oluştur
+  const roomId = 'masa-' + currentMasaNo;
+  currentRoomId = roomId;
+  
+  // Mode badge
+  const badge = document.getElementById('mode-badge');
+  badge.textContent = '🌐 Çevrimiçi — Masa ' + currentMasaNo;
+  badge.style.display = 'block';
+  
+  // Sohbet başlat
+  subscribeToChatRoom(roomId);
+  document.getElementById('chat-toggle').style.display = 'flex';
+  
+  return pn;
+}
+
+// ── OYUNU BAŞLATMA (startGame override) ──
+// Orijinal startGame'in önüne geçiyoruz
+const _origStartGame = startGame;
+
+</script>
 <script>
 // ═══ SUPABASE ═══
 const SUPA_URL = 'https://nflxrfolzqecdxcptdmu.supabase.co';
@@ -258,9 +410,12 @@ function goToLobby() {
   document.getElementById('game').style.display='none';
   document.getElementById('end-wrap').classList.remove('show');
   document.getElementById('chat-toggle').style.display='none';
+  document.getElementById('mode-badge').style.display='none';
   chatOpen=false;
   document.getElementById('chat-panel').classList.remove('open');
   currentRoomId=null;
+  isSpectating=false;
+  clearTimeout(disconnectTimer);
   document.getElementById('lobby').style.display='flex';
   if(currentUser) loadProfile().then(()=>showLobby()); else showLobby();
 }
@@ -447,6 +602,19 @@ body{font-family:system-ui,sans-serif;background:#062033;color:#fff;overflow:hid
 .horizontal-pinfo .p-timer { font-size: 11px; margin-bottom: 1px; min-width: unset; }
 .horizontal-pinfo .acilis-text { font-size: 9px; color: rgba(255, 255, 255, 0.6); margin-top: 0; }
 
+/* İZLE BUTONU */
+.izle-btn{position:absolute;bottom:-22px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.7);font-size:10px;padding:3px 10px;border-radius:10px;cursor:pointer;white-space:nowrap;transition:all .15s;}
+.izle-btn:hover{background:rgba(232,200,74,.2);border-color:#e8c84a;color:#e8c84a;}
+
+/* İZLEYİCİ MOD */
+#spectator-bar{position:fixed;top:0;left:0;right:0;background:rgba(0,0,0,.85);border-bottom:2px solid #e8c84a;padding:8px 16px;display:none;align-items:center;justify-content:space-between;z-index:100;}
+#spectator-bar.show{display:flex;}
+.spec-info{font-size:12px;color:#e8c84a;font-weight:700;}
+.spec-back{padding:5px 14px;background:#e8c84a;color:#1a1a00;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;}
+
+/* OYUN MODU BADGE */
+.mode-badge{position:fixed;top:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.2);border-radius:12px;padding:3px 12px;font-size:11px;color:rgba(255,255,255,.7);z-index:10;pointer-events:none;}
+
 /* AUTH */
 #auth-screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at center,#1a4a6b,#062033);z-index:2000;padding:20px;}
 .auth-card{background:#062033;border:2px solid #e8c84a;border-radius:16px;padding:30px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.8);}
@@ -499,6 +667,14 @@ body{font-family:system-ui,sans-serif;background:#062033;color:#fff;overflow:hid
 </head>
 <body>
 <div id="ghost"></div>
+<div id="spectator-bar">
+  <div class="spec-info">👁 İzleme Modu — Masa <span id="spec-masa-no">?</span></div>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <span style="font-size:11px;color:rgba(255,255,255,.5);">Sohbete katılabilirsin</span>
+    <button class="spec-back" onclick="stopSpectating()">← Lobiye Dön</button>
+  </div>
+</div>
+<div id="mode-badge" class="mode-badge" style="display:none;"></div>
 
 <div id="auth-screen">
   <div class="auth-card">
@@ -565,6 +741,18 @@ body{font-family:system-ui,sans-serif;background:#062033;color:#fff;overflow:hid
   <div class="setup-modal">
     <button class="close-modal-btn" onclick="closeSetup()">&times;</button>
     <div class="s-title">Masaya Otur & Oyunu Kur</div>
+    
+    <!-- OYUN MODU -->
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <button class="cb on" id="mod-online" data-v="online" onclick="pickMod('online')" style="flex:1;padding:10px;font-size:13px;">
+        🌐 Çevrimiçi
+        <div style="font-size:10px;font-weight:400;margin-top:2px;opacity:.7;">Gerçek oyuncular • XP & Rating kazanırsın</div>
+      </button>
+      <button class="cb" id="mod-bot" data-v="bot" onclick="pickMod('bot')" style="flex:1;padding:10px;font-size:13px;">
+        🤖 Tek Başına
+        <div style="font-size:10px;font-weight:400;margin-top:2px;opacity:.7;">3 bot ile • XP kazanılmaz</div>
+      </button>
+    </div>
     
     <div class="setup-body">
         <div class="s-group">
@@ -808,15 +996,16 @@ function initLobby() {
     for(let i=1; i<=40; i++) {
         // Rastgele izleyiciler/oyuncular (görsellik katmak için eklenebilir ama şu an sade tutuldu)
         grid.innerHTML += `
-            <div class="masa-wrapper">
+            <div class="masa-wrapper" style="position:relative;padding-bottom:28px;">
                 <div class="masa-board">
                     <span>Masa ${i}</span>
                     <small>10.000 🪙</small>
                 </div>
-                <div class="oyna-btn seat-top" onclick="openSetup()">OYNA</div>
-                <div class="oyna-btn seat-bottom" onclick="openSetup()">OYNA</div>
-                <div class="oyna-btn seat-left" onclick="openSetup()">OYNA</div>
-                <div class="oyna-btn seat-right" onclick="openSetup()">OYNA</div>
+                <div class="oyna-btn seat-top" onclick="openSetup(${i})">OYNA</div>
+                <div class="oyna-btn seat-bottom" onclick="openSetup(${i})">OYNA</div>
+                <div class="oyna-btn seat-left" onclick="openSetup(${i})">OYNA</div>
+                <div class="oyna-btn seat-right" onclick="openSetup(${i})">OYNA</div>
+                <div class="izle-btn" onclick="izleMasa(${i})">👁 İzle</div>
             </div>
         `;
     }
@@ -942,8 +1131,22 @@ function startGame(){
   
   doResize(); setTimeout(doResize, 50);
   document.getElementById('disc-player').addEventListener('click',()=>{if(G.turn===0&&G.phase==='discard'&&G.sel) doDiscard(G.sel);});
-  if(!currentRoomId) currentRoomId = 'local-' + Date.now();
-  document.getElementById('chat-toggle').style.display = 'flex';
+  
+  // Online veya bot mod
+  if(gameMode === 'online' && currentUser) {
+    currentRoomId = 'masa-' + (currentMasaNo || 1);
+    const badge = document.getElementById('mode-badge');
+    badge.textContent = '🌐 Çevrimiçi — Masa ' + (currentMasaNo||1);
+    badge.style.display = 'block';
+    subscribeToChatRoom(currentRoomId);
+    document.getElementById('chat-toggle').style.display = 'flex';
+  } else {
+    // Bot modu - local ID
+    currentRoomId = 'local-' + Date.now();
+    const badge = document.getElementById('mode-badge');
+    badge.textContent = '🤖 Tek Başına Oyun — XP Kazanılmaz';
+    badge.style.display = 'block';
+  }
   deal();
 }
 
