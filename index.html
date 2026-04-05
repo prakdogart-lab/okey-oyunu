@@ -124,7 +124,7 @@ function showLobby() {
     avEl.textContent = '👤';
     logoutBtn.style.display = 'none';
   }
-  // initLobby() was called here, but it's not defined in this snippet. I'm leaving it out for now.
+  initLobby();
 }
 
 async function showProfile() {
@@ -182,8 +182,8 @@ function izleMasa(masaNo) {
   }, 100);
   subscribeToChatRoom(currentRoomId);
   document.getElementById('chat-toggle').style.display = 'flex';
-  // setMsg('İzleme modundasın. Sohbete katılabilirsin.'); // setMsg is not defined in this snippet. I'm leaving it out for now.
-  // doResize(); // doResize is not defined in this snippet. I'm leaving it out for now.
+  setMsg('İzleme modundasın. Sohbete katılabilirsin.');
+  doResize();
 }
 
 // SOHBET
@@ -250,7 +250,7 @@ function saveGameStats() {
       console.log('Profil güncellendi: XP +' + xpGain + ', Rating ' + (ratingChange>0?'+':'') + ratingChange);
       if(newLevel > oldLevel) {
         const lvlInfo = getLevel(newXp);
-        // spawnFloatingText('🎉 Seviye Atladın! ' + getLevelBadge(newLevel) + ' ' + lvlInfo.name, '#e8c84a'); // spawnFloatingText is not defined in this snippet. I'm leaving it out for now.
+        spawnFloatingText('🎉 Seviye Atladın! ' + getLevelBadge(newLevel) + ' ' + lvlInfo.name, '#e8c84a');
       }
     });
     supa.from('game_history').insert({user_id:currentUser.id, result:isWin?'win':'lose', score_delta:myScore});
@@ -260,7 +260,7 @@ function saveGameStats() {
 // LOBİYE DÖN
 function goToLobby() {
   document.getElementById('game').style.display = 'none';
-  // document.getElementById('end-wrap').classList.remove('show'); // This element doesn't exist in the provided HTML snippet
+  document.getElementById('end-wrap').classList.remove('show');
   document.getElementById('chat-toggle').style.display = 'none';
   document.getElementById('mode-badge').style.display = 'none';
   chatOpen = false;
@@ -364,97 +364,1505 @@ body{font-family:system-ui,sans-serif;background:#062033;color:#fff;overflow:hid
 .tile.r{border-color:#cc0000}.tile.r .tv,.tile.r .tc{color:#d61a1a}
 .tile.b{border-color:#0044cc}.tile.b .tv,.tile.b .tc{color:#1a75ff}
 .tile.g{border-color:#cc8800}.tile.g .tv,.tile.g .tc{color:#e6a800}
-.tile.k{border-color:#333}.tile.k .tv, .tile.k .tc{color:#222}
+.tile.k{border-color:#333}.tile.k .tv,.tile.k .tc{color:#111}
+.tile.ok{background:#1a0a3a;border-color:#e8c84a}.tile.ok .tv{color:#f5d84a;font-size:24px}.tile.ok .tc{color:#c8a830;font-size:11px}
+.tile.real-okey{border-color:#e8c84a !important;border-width:2px !important;box-shadow:0 0 8px rgba(232,200,74,.8),inset 0 0 6px rgba(232,200,74,.4) !important}
+.tile.real-okey .tc{color:#e8c84a !important;font-size:11px !important;font-weight:900 !important;background:#1a0a3a;padding:0 3px;border-radius:2px}
+.tile.sm{width:32px;height:46px; border-radius:6px;}.tile.sm .tv{font-size:16px; margin-top:-1px;}.tile.sm .tc{font-size:9px; margin-top:1px;}
+.isler-tas::after { content: ''; position: absolute; top: -1px; left: -1px; right: -1px; height: 5px; background: #33cc00; border-radius: 8px 8px 0 0; opacity: 0.95; border: 1px solid #228800; border-bottom: none; z-index: 2; pointer-events: none; }
+.side-strip{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:15px;}
+.side-strip.left{grid-area:left;}
+.side-strip.right{grid-area:right;}
+.player-info{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px;border-radius:10px;background:rgba(0,0,0,.5);border:1.5px solid rgba(255,255,255,.1);transition:all .3s;min-width:70px;}
+.player-info.active-player{background:rgba(232,200,74,.2);border-color:#e8c84a;box-shadow:0 0 12px rgba(232,200,74,.5)}
+.avatar-box { width: 38px; height: 38px; border-radius: 50%; background: #1a4a6b; border: 2px solid rgba(255,255,255,.3); display: flex; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 5px; box-shadow: inset 0 0 5px rgba(0,0,0,.5); }
+.avatar-box img { width: 70%; height: 70%; object-fit: contain; }
+.pname{font-size:11px;font-weight:800;color:#fff;text-align:center;margin-bottom:2px;}
+.active-player .pname{color:#e8c84a !important}
+.pscore{font-size:10px;color:#aaa;font-weight:700;margin-bottom:2px;}
+.p-timer{font-size:11px;font-weight:900;color:#ffdd55;height:14px;line-height:14px;min-width:38px;text-align:center;white-space:nowrap;overflow:hidden;}
+.p-timer.warn {color:#ff4444;animation:pulse 1s infinite}
+.acilis-text {font-size:9px;color:#88ff88;font-weight:bold;margin-top:4px;text-align:center;line-height:1.2;}
+.deck-pile{width:46px;height:66px;border-radius:8px;background:linear-gradient(135deg,#9B3A0A,#6B2008);border:1.5px solid rgba(255,255,255,.25);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;box-shadow:2px 2px 5px rgba(0,0,0,.4);}
+.deck-pile .dc{font-size:18px;font-weight:700;color:#fff}
+.deck-pile .dl{font-size:10px;color:rgba(255,255,255,.6)}
+.gosterge-box{width:46px;height:66px;border-radius:8px;border:1.5px solid rgba(232,200,74,.5);display:flex;align-items:center;justify-content:center;background:rgba(232,200,74,.07);}
+.disc-pile-player{width:46px;height:66px;border-radius:8px;border:2px dashed rgba(232,200,74,.5);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;background:rgba(0,0,0,.2);flex-shrink:0}
+.disc-pile-player.has{border-style:solid;border-color:rgba(232,200,74,.7)}
+.disc-pile-player.drop-fin{border-color:#e8c84a !important;background:rgba(232,200,74,.22) !important;border-style:solid !important}
+.disc-opp-v{width:46px;height:66px;border-radius:8px;border:1.5px dashed rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;}
+.disc-pile-opp{width:46px;height:66px;border-radius:8px;border:1.5px dashed rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;}
+.center-area{grid-area:center;display:flex;flex-direction:column;gap:3px;min-height:0;}
+.top-bar{grid-area:top-bar;display:flex;align-items:flex-end;justify-content:space-between;gap:6px;height:auto;min-height:52px;padding-bottom:2px;padding-top:4px;}
+.bot2-area{flex:1;display:flex;flex-direction:row;align-items:flex-end;justify-content:center;gap:15px;padding-top:0;}
+.info-box{background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:5px 8px;font-size:10px;}
+.scores-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;}
+.sr{font-size:10px;color:rgba(255,255,255,.7);display:flex;gap:3px;white-space:nowrap;}
+.sr b{color:#fff}.sr.me b{color:#e8c84a}
+.chip{background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.12);border-radius:5px;padding:2px 8px;font-size:10px;color:rgba(255,255,255,.7);white-space:nowrap;}
+.chip.hl{color:#e8c84a;border-color:rgba(232,200,74,.4)}
+#table-area { background: #0a2b42; border: 1px solid rgba(255,255,255,.1); border-radius: 8px; flex: 1; display: flex; flex-direction: row; justify-content: flex-end; overflow: hidden; min-height: 0; padding: 6px 12px 6px 6px; gap: 8px; }
+.ta-col { display: flex; flex-direction: column; border-right: 1px solid rgba(255,255,255,.1); padding-right: 8px; }
+.ta-col:last-child { border-right: none; padding-right: 0; }
+.ta-head { font-size:11px;color:rgba(255,255,255,.6);text-align:center;font-weight:800;margin-bottom:3px; }
+#table-series, #table-pers, #table-pairs { display: flex; flex-direction: column; gap: 2px; overflow: hidden; flex: 1; border: none !important; padding: 0 !important; }
+.series-row, .per-row { display: flex; justify-content: center; gap: 1px; background: rgba(0,0,0,.2); border-radius: 4px; height: 36px; border: 1px solid transparent; transition: border-color 0.15s, background-color 0.15s; }
+.pair-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; height: 36px; }
+.pair-cell { display: flex; justify-content: center; gap: 1px; background: rgba(0,0,0,.2); border-radius: 4px; height: 100%; border: 1px solid transparent; transition: border-color 0.15s, background-color 0.15s; }
+.open-group-row { cursor: pointer; background: rgba(0,0,0,.4); border-color: rgba(255,255,255,.15); }
+.open-group-row:hover, .open-group-row.hov { background: rgba(100,255,100,.15) !important; border-color: #88ff88 !important; }
+.has-pair { cursor: pointer; background: rgba(0,0,0,.4); border-color: rgba(255,255,255,.15); }
+.has-pair:hover, .has-pair.hov { background: rgba(100,255,100,.15) !important; border-color: #88ff88 !important; }
+.board-cell { width: 26px; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,.03); border-radius: 3px; }
+.tile.board { width: 100%; height: 100%; border-radius: 3px; border-width: 1px; margin: 0; box-shadow: 1px 1px 3px rgba(0,0,0,0.5); }
+.tile.board .tv { font-size: 16px; letter-spacing: -1px; line-height: 1; margin-top: -2px; }
+.tile.board .tc { font-size: 8px; margin-top: 1px; }
+.msg{background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.1);border-radius:5px;padding:4px 10px;font-size:10px;color:#fff;text-align:center;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.bottom-area{grid-area:bot;display:flex;align-items:flex-end;justify-content:center;gap:15px;}
+.rack-outer{background:linear-gradient(180deg,#dca14c,#c0802c);border:2px solid #eebb77;border-bottom:4px solid #8e5812;border-radius:5px;padding:4px;display:flex;flex-direction:column;gap:3px;box-shadow:inset 0 2px 8px rgba(0,0,0,.5),0 4px 12px rgba(0,0,0,.4); position:relative; z-index:3;}
+.rack-row{display:flex;gap:1px;min-height:68px;align-items:center;flex-wrap:nowrap;overflow-x:auto;padding:1px;scrollbar-width:none;}
+.rack-divider{height:2px;background:rgba(0,0,0,.4);border-radius:1px}
+.rack-outer .slot {width:46px;height:66px;border-radius:8px;border:1.5px dashed rgba(255,255,255,.2);flex-shrink:0;transition:all .1s}
+.rack-outer .slot.hov {background:rgba(232,200,74,.22);border-color:#e8c84a;border-style:solid}
+@keyframes pulse-green{0%{box-shadow:0 0 6px rgba(100,255,100,.4)}50%{box-shadow:0 0 14px rgba(100,255,100,.9);border-color:#aaffaa}100%{box-shadow:0 0 6px rgba(100,255,100,.4)}}
+.disc-pile-opp.takeable{border-color:#88ff88 !important;cursor:pointer;animation:pulse-green 1.5s infinite;}
+@keyframes pulse{0%{opacity:1}50%{opacity:.5}100%{opacity:1}}
+.acts-col { display: flex; flex-direction: column; gap: 10px; justify-content: flex-end; min-width: 120px; height: 240px; padding-bottom: 4px;}
+.acts-col .btn { padding: 10px 12px; font-size: 13px; border-radius: 8px; width: 100%; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); font-weight:700; cursor:pointer; border:2px solid; transition:all .12s; white-space:nowrap; }
+.btn-mode{background:#c06000;border-color:#e07818;color:#fff8ee}
+.btn-mode:hover,.btn-mode.on{background:#ff8c00;border-color:#ffb040;color:#fff}
+.btn-ac{background:#1a6600;border-color:#33cc00;color:#ccffaa}
+.btn-ac:hover:not(:disabled){background:#228800}
+.btn-ac:disabled{background:#2a3a2a;border-color:#445544;color:#556655;cursor:default}
+.btn-isle{background:#005a88;border-color:#0088cc;color:#cceeff}
+.btn-isle:disabled{background:#223344;border-color:#445566;color:#667788;cursor:default}
+.btn-at{background:#aa1818;border-color:#ee3030;color:#fff}
+.btn-at:disabled{background:#3a2a2a;border-color:#554444;color:#886666;cursor:default}
+#timer-chip{font-weight:800;text-align:center;transition:color .2s;}
+#ac-panel{display:none;position:absolute;bottom:150px;left:50%;transform:translateX(-50%);background:#0a2e18;border:2px solid #e8c84a;border-radius:10px;padding:12px;z-index:100;min-width:280px;max-width:360px;width:90%}
+#ac-panel h3{color:#e8c84a;font-size:13px;margin-bottom:8px;text-align:center}
+#ac-sel-tiles{display:flex;gap:3px;flex-wrap:wrap;min-height:46px;background:rgba(0,0,0,.3);border-radius:7px;padding:6px;margin-bottom:8px}
+.ac-pts{font-size:11px;color:rgba(255,255,255,.7);text-align:center;margin-bottom:6px}
+.ac-pts span{color:#e8c84a;font-weight:700}
+#ac-btns{display:flex;gap:6px;justify-content:center}
+.btn-ac-ok{padding:8px 18px;border-radius:7px;background:#22aa00;border:2px solid #44dd11;color:#fff;font-size:12px;font-weight:700;cursor:pointer}
+.btn-ac-ok:disabled{background:#334433;border-color:#445544;color:#778877;cursor:default}
+.btn-ac-cancel{padding:8px 14px;border-radius:7px;background:#444;border:2px solid #666;color:#ccc;font-size:12px;cursor:pointer}
+#reject-modal, #skor-modal, .end-wrap{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:200;align-items:center;justify-content:center}
+.show{display:flex !important}
+.skor-card, .end-card{background:#0a2e18;border:1px solid rgba(255,255,255,.2);border-radius:14px;padding:16px;max-width:700px;width:95%;text-align:center;}
+.skor-card h2, .end-card h2{color:#e8c84a;font-size:18px;margin-bottom:15px; font-weight:800;}
+.skor-table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:10px;text-align:center;}
+.skor-table th{color:#e8c84a;padding:8px 5px;border-bottom:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.3);}
+.skor-table td{padding:6px 5px;border-bottom:1px dashed rgba(255,255,255,.1);color:rgba(255,255,255,.9); border-left:1px solid rgba(255,255,255,.05); border-right:1px solid rgba(255,255,255,.05);}
+.skor-table tr:last-child td{border-bottom:none;}
+.skor-table .ceza{color:#ff8888}.skor-table .bonus{color:#88ff88}
+.devam-btn, .btn-new{padding:10px;background:#e8c84a;color:#1a1a00;border:none;border-radius:7px;font-size:14px;font-weight:700;cursor:pointer;width:100%;max-width:300px;margin:15px auto 0 auto;display:block;}
+#ghost{position:fixed;pointer-events:none;z-index:9999;display:none;width:46px;height:66px;border-radius:8px;flex-direction:column;align-items:center;justify-content:center;gap:1px;border:2px solid #e8c84a;box-shadow:0 6px 20px rgba(0,0,0,.7);font-weight:900}
+@keyframes floatUp{0%{opacity:1;transform:translate(-50%,-50%) scale(.5)}15%{transform:translate(-50%,-50%) scale(1.2)}30%{transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-150%) scale(1)}}
+.horizontal-pinfo { flex-direction: row; gap: 10px; padding: 6px 14px; border-radius: 10px; background: rgba(10, 43, 66, 0.9); border: 1.5px solid rgba(255, 255, 255, 0.2); box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+#pinfo-0.horizontal-pinfo { border-color: #e8c84a; }
+.horizontal-pinfo .avatar-box { margin-bottom: 0; width: 32px; height: 32px; }
+.info-col { display: flex; flex-direction: column; justify-content: center; }
+.info-col.left { align-items: flex-start; }
+.info-col.right { align-items: flex-end; }
+.horizontal-pinfo .pname { font-size: 13px; margin-bottom: 1px; }
+.horizontal-pinfo .pscore { font-size: 10px; margin-bottom: 0; }
+.info-divider { width: 1px; height: 26px; background: rgba(255, 255, 255, 0.2); margin: 0 4px; }
+.horizontal-pinfo .p-timer { font-size: 11px; margin-bottom: 1px; min-width: unset; }
+.horizontal-pinfo .acilis-text { font-size: 9px; color: rgba(255, 255, 255, 0.6); margin-top: 0; }
 </style>
 </head>
 <body>
+<div id="ghost"></div>
+<div id="mode-badge" style="position:fixed;top:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.2);border-radius:12px;padding:3px 12px;font-size:11px;color:rgba(255,255,255,.7);z-index:10;pointer-events:none;display:none;"></div>
 
-    <div id="lobby">
-        <div class="lobby-header">
-            <div class="lobby-title">81 OKEY LOBİ</div>
-            <div class="lobby-info">
-                <span id="lobby-username"></span> - <span id="lobby-score"></span>
-                <span id="lobby-avatar" style="margin-left: 10px; font-size: 20px;"></span>
-                <button id="logout-btn" onclick="doLogout()" style="margin-left: 15px; padding: 5px 10px; background: #e8c84a; color: #1a1a00; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">Çıkış Yap</button>
+<!-- AUTH EKRANI -->
+<div id="auth-screen" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at center,#1a4a6b,#062033);z-index:2000;padding:20px;">
+  <div style="background:#062033;border:2px solid #e8c84a;border-radius:16px;padding:30px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.8);">
+    <div style="text-align:center;font-size:36px;font-weight:900;color:#e8c84a;margin-bottom:5px;letter-spacing:2px;">81 OKEY</div>
+    <div style="text-align:center;font-size:12px;color:rgba(255,255,255,.5);margin-bottom:20px;">Türkiye'nin En İyi Okey Deneyimi</div>
+    <div style="display:flex;margin-bottom:16px;border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,.1);">
+      <div id="tab-giris" style="flex:1;padding:8px;text-align:center;cursor:pointer;font-size:13px;font-weight:700;background:#e8c84a;color:#1a1a00;" onclick="switchAuthTab('giris')">Giriş Yap</div>
+      <div id="tab-kayit" style="flex:1;padding:8px;text-align:center;cursor:pointer;font-size:13px;font-weight:700;background:rgba(0,0,0,.3);color:rgba(255,255,255,.5);" onclick="switchAuthTab('kayit')">Üye Ol</div>
+    </div>
+    <div id="auth-error" style="color:#ff6666;font-size:12px;text-align:center;margin-bottom:8px;min-height:16px;"></div>
+    <div id="auth-giris">
+      <input id="giris-email" type="email" placeholder="E-posta adresi" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.4);color:#fff;font-size:14px;margin-bottom:12px;outline:none;box-sizing:border-box;">
+      <input id="giris-sifre" type="password" placeholder="Şifre" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.4);color:#fff;font-size:14px;margin-bottom:12px;outline:none;box-sizing:border-box;">
+      <button onclick="doGiris()" style="width:100%;padding:12px;background:#e8c84a;color:#1a1a00;border:none;border-radius:8px;font-size:15px;font-weight:800;cursor:pointer;margin-bottom:10px;">Giriş Yap</button>
+    </div>
+    <div id="auth-kayit" style="display:none;">
+      <input id="kayit-kullanici" type="text" placeholder="Kullanıcı adı" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.4);color:#fff;font-size:14px;margin-bottom:12px;outline:none;box-sizing:border-box;">
+      <input id="kayit-email" type="email" placeholder="E-posta adresi" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.4);color:#fff;font-size:14px;margin-bottom:12px;outline:none;box-sizing:border-box;">
+      <input id="kayit-sifre" type="password" placeholder="Şifre (min 6 karakter)" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.4);color:#fff;font-size:14px;margin-bottom:12px;outline:none;box-sizing:border-box;">
+      <button onclick="doKayit()" style="width:100%;padding:12px;background:#e8c84a;color:#1a1a00;border:none;border-radius:8px;font-size:15px;font-weight:800;cursor:pointer;margin-bottom:10px;">Üye Ol</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin:12px 0;color:rgba(255,255,255,.3);font-size:12px;">
+      <div style="flex:1;height:1px;background:rgba(255,255,255,.15);"></div>veya<div style="flex:1;height:1px;background:rgba(255,255,255,.15);"></div>
+    </div>
+    <button onclick="doMisafir()" style="width:100%;padding:10px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.2);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">👤 Misafir Olarak Devam Et</button>
+  </div>
+</div>
+
+<!-- PROFİL MODAL -->
+<div id="profile-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:3000;align-items:center;justify-content:center;">
+  <div style="background:#062033;border:2px solid #e8c84a;border-radius:16px;padding:24px;max-width:420px;width:90%;">
+    <h2 style="color:#e8c84a;font-size:18px;margin-bottom:16px;text-align:center;">👤 Profilim</h2>
+    <div id="profile-content"></div>
+    <button onclick="document.getElementById('profile-modal').style.display='none'" style="width:100%;padding:12px;background:#e8c84a;color:#1a1a00;border:none;border-radius:8px;font-size:14px;font-weight:800;cursor:pointer;margin-top:16px;">Kapat</button>
+  </div>
+</div>
+
+<!-- SOHBET -->
+<div id="chat-panel" style="position:fixed;right:0;top:0;bottom:0;width:260px;background:#071e2e;border-left:1px solid rgba(255,255,255,.1);display:flex;flex-direction:column;z-index:50;transform:translateX(100%);transition:transform .3s;">
+  <div style="padding:10px 14px;background:#0a2b42;border-bottom:1px solid rgba(255,255,255,.1);display:flex;justify-content:space-between;align-items:center;">
+    <span style="font-size:13px;font-weight:700;color:#e8c84a;">💬 Sohbet</span>
+    <button onclick="toggleChat()" style="background:none;border:none;color:rgba(255,255,255,.5);font-size:20px;cursor:pointer;line-height:1;">×</button>
+  </div>
+  <div id="chat-messages" style="flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:6px;"></div>
+  <div style="padding:10px;border-top:1px solid rgba(255,255,255,.1);display:flex;gap:6px;">
+    <input id="chat-input" placeholder="Mesaj yaz..." onkeydown="if(event.key==='Enter')sendChatMsg()" style="flex:1;padding:7px 10px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:12px;outline:none;">
+    <button onclick="sendChatMsg()" style="padding:7px 12px;background:#e8c84a;color:#1a1a00;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">Gönder</button>
+  </div>
+</div>
+<button id="chat-toggle" onclick="toggleChat()" style="position:fixed;right:10px;bottom:120px;z-index:60;width:44px;height:44px;border-radius:50%;background:#e8c84a;color:#1a1a00;border:none;font-size:20px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;">💬</button>
+
+<div id="lobby">
+  <div class="lobby-header">
+      <div class="lobby-title">81 OKEY LOBİSİ</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div id="lobby-avatar" style="width:32px;height:32px;border-radius:50%;background:#1a4a6b;border:2px solid #e8c84a;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;color:#e8c84a;">?</div>
+        <div>
+          <div id="lobby-username" style="font-size:13px;font-weight:700;color:#fff;">...</div>
+          <div id="lobby-score" style="font-size:11px;color:rgba(255,255,255,.5);"></div>
+        </div>
+        <button onclick="showProfile()" style="padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;border:1px solid rgba(232,200,74,.5);background:rgba(232,200,74,.15);color:#e8c84a;">Profil</button>
+        <button id="logout-btn" onclick="doLogout()" style="padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;border:1px solid rgba(255,0,0,.3);background:rgba(255,0,0,.15);color:#ff8888;">Çıkış</button>
+      </div>
+  </div>
+  <div class="tables-grid" id="tables-grid">
+      </div>
+</div>
+
+<div id="setup">
+  <div class="setup-modal">
+    <button class="close-modal-btn" onclick="closeSetup()">&times;</button>
+    <div class="s-title">Masaya Otur & Oyunu Kur</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button class="cb on" id="mod-online" onclick="pickMod('online')" style="flex:1;padding:10px;font-size:13px;text-align:left;">
+        🌐 <b>Çevrimiçi</b><br><span style="font-size:10px;font-weight:400;opacity:.7;">Gerçek oyuncular • XP & Rating kazanırsın</span>
+      </button>
+      <button class="cb" id="mod-bot" onclick="pickMod('bot')" style="flex:1;padding:10px;font-size:13px;text-align:left;">
+        🤖 <b>Tek Başına</b><br><span style="font-size:10px;font-weight:400;opacity:.7;">3 bot ile oyna • XP kazanılmaz</span>
+      </button>
+    </div>
+    
+    <div class="setup-body">
+        <div class="s-group">
+            <span class="s-label">Oyuncu Adın</span>
+            <input class="s-input" id="pname" value="Ömer" placeholder="Adınızı girin">
+            
+            <span class="s-label">Oyun Türü</span>
+            <div class="s-row" id="oyunTuru">
+              <button class="cb on" data-v="bireysel" onclick="pick(this,'oyunTuru')">Bireysel</button>
+              <button class="cb" data-v="esli" onclick="pick(this,'oyunTuru')">Eşli (Ortaklı)</button>
+            </div>
+            
+            <span class="s-label">Yardım Modu</span>
+            <div class="s-row" id="yardimModu">
+              <button class="cb on" data-v="yardimli" onclick="pick(this,'yardimModu')">Yardımlı (Kolay)</button>
+              <button class="cb" data-v="yardimsiz" onclick="pick(this,'yardimModu')">Yardımsız (Zor)</button>
+            </div>
+
+            <span class="s-label">Bot Zorluğu</span>
+            <div class="s-row" id="diffs">
+              <button class="cb" data-v="easy" onclick="pick(this,'diffs')">Kolay</button>
+              <button class="cb on" data-v="medium" onclick="pick(this,'diffs')">Orta</button>
+              <button class="cb" data-v="hard" onclick="pick(this,'diffs')">Zor</button>
             </div>
         </div>
-        <div class="tables-grid" id="masalar">
+
+        <div class="s-group">
+            <span class="s-label">Kaç El Oynanacak?</span>
+            <div class="s-row" id="elSayisi">
+              <button class="cb" data-v="1" onclick="pick(this,'elSayisi')">1 El</button>
+              <button class="cb" data-v="3" onclick="pick(this,'elSayisi')">3 El</button>
+              <button class="cb on" data-v="5" onclick="pick(this,'elSayisi')">5 El</button>
+              <button class="cb" data-v="9" onclick="pick(this,'elSayisi')">9 El</button>
+              <button class="cb" data-v="11" onclick="pick(this,'elSayisi')">11 El</button>
+            </div>
+            
+            <span class="s-label">Açılış Puanı (Min)</span>
+            <div class="s-row" id="acilis">
+              <button class="cb on" data-v="81" onclick="pick(this,'acilis')">81 Puan</button>
+              <button class="cb" data-v="101" onclick="pick(this,'acilis')">101 Puan</button>
+            </div>
+            
+            <span class="s-label">Tur Süresi (Saniye)</span>
+            <div class="s-row" id="normal-sure">
+              <button class="cb" data-v="10" onclick="pick(this,'normal-sure')">10</button>
+              <button class="cb on" data-v="15" onclick="pick(this,'normal-sure')">15</button>
+              <button class="cb" data-v="20" onclick="pick(this,'normal-sure')">20</button>
+              <button class="cb" data-v="30" onclick="pick(this,'normal-sure')">30</button>
+            </div>
+            
+            <span class="s-label">Açık El Süresi (Saniye)</span>
+            <div class="s-row" id="acik-sure">
+              <button class="cb" data-v="20" onclick="pick(this,'acik-sure')">20</button>
+              <button class="cb on" data-v="30" onclick="pick(this,'acik-sure')">30</button>
+              <button class="cb" data-v="40" onclick="pick(this,'acik-sure')">40</button>
+            </div>
+        </div>
+    </div>
+    
+    <button class="start-btn" onclick="startGame()">Hemen Oyuna Başla ►</button>
+  </div>
+</div>
+
+<div id="game">
+ <div id="game-board">
+  
+  <div class="side-strip left">
+    <div class="player-info" id="pinfo-3">
+        <div class="avatar-box"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23fff'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>" alt="avatar"></div>
+        <div class="pname" id="n3">Bot 3</div>
+        <div class="pscore" id="s3">0</div>
+        <div class="p-timer" id="timer-3"></div>
+        <div class="acilis-text" id="acilis-text-3"></div>
+    </div>
+    <div class="disc-opp-v disc-pile-opp" id="disc-opp3" title="Taşı al"><span style="font-size:11px;color:rgba(255,255,255,.3)">atık</span></div>
+  </div>
+
+  <div class="top-bar">
+      <div class="info-box">
+        <div class="scores-grid">
+          <div class="sr me"><span id="sc-n0">Sen:</span><b id="sc-v0">0</b></div><div class="sr"><span id="sc-n2">Bot 2:</span><b id="sc-v2">0</b></div>
+          <div class="sr"><span id="sc-n1">Bot 1:</span><b id="sc-v1">0</b></div><div class="sr"><span id="sc-n3">Bot 3:</span><b id="sc-v3">0</b></div>
+        </div>
+        <div style="display:flex;gap:3px;margin-top:4px;flex-wrap:wrap;">
+          <div class="chip hl" id="el-chip">El: 1/5</div><div class="chip" id="acilis-chip">81p</div><div class="chip" style="color:#e8c84a;border-color:rgba(232,200,74,.3);" id="okey-bar">Okey:—</div>
+        </div>
+      </div>
+      
+      <div class="bot2-area">
+        <div class="player-info horizontal-pinfo" id="pinfo-2">
+            <div class="avatar-box"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23fff'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>" alt="avatar"></div>
+            <div class="info-col left">
+                <div class="pname" id="n2">Bot 2</div>
+                <div class="pscore" id="s2">0 Puan</div>
+            </div>
+            <div class="info-divider"></div>
+            <div class="info-col right">
+                <div class="p-timer" id="timer-2"></div>
+                <div class="acilis-text" id="acilis-text-2"></div>
+            </div>
+        </div>
+        <div class="disc-pile-opp" id="disc-opp2" title="Taşı al"><span style="font-size:11px;color:rgba(255,255,255,.3)">atık</span></div>
+      </div>
+
+      <div class="info-box" style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">
+        <div style="display:flex;gap:3px;flex-wrap:wrap;justify-content:flex-end;">
+          <div class="chip hl" id="turn-chip">Sıra:—</div><div class="chip" id="timer-chip" style="color:#ffdd55;">⏳--s</div><div class="chip" id="deck-chip">Deste:—</div>
+        </div>
+        <div class="msg" id="msg">Yükleniyor...</div>
+      </div>
+  </div>
+  
+  <div class="center-area">
+    <div id="table-area">
+        <div class="ta-col">
+            <div class="ta-head">Seriler (1-13)</div>
+            <div id="table-series"></div>
+        </div>
+        <div class="ta-col">
+            <div class="ta-head">Perler</div>
+            <div id="table-pers"></div>
+        </div>
+        <div class="ta-col">
+            <div class="ta-head">Çiftler</div>
+            <div id="table-pairs"></div>
+        </div>
+    </div>
+  </div>
+
+  <div class="side-strip right">
+    <div class="disc-opp-v disc-pile-opp" id="disc-opp1" title="Taşı al"><span style="font-size:11px;color:rgba(255,255,255,.3)">atık</span></div>
+    <div class="player-info" id="pinfo-1">
+        <div class="avatar-box"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23fff'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>" alt="avatar"></div>
+        <div class="pname" id="n1">Bot 1</div>
+        <div class="pscore" id="s1">0</div>
+        <div class="p-timer" id="timer-1"></div>
+        <div class="acilis-text" id="acilis-text-1"></div>
+    </div>
+  </div>
+
+  <div class="bottom-area">
+    <div style="display:flex;flex-direction:column;align-items:center; width:100%; justify-content: flex-end; padding-bottom: 5px;">
+        
+        <div style="width: 100%; max-width: 800px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 0 10px;">
+            
+            <div style="display:flex; gap:10px;">
+                <div class="deck-pile" id="deck-btn" onclick="drawDeck()">
+                    <span class="dc" id="dc" style="font-size:18px;">0</span>
+                    <span class="dl" style="font-size:10px;">taş</span>
+                </div>
+                <div class="gosterge-box" id="gosterge-area"></div>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 15px; z-index: 5;">
+                <div style="background:rgba(0,0,0,.6); padding:6px 12px; border-radius:10px; border:1.5px solid rgba(238, 187, 119, 0.4); display:flex; flex-direction:column; align-items:flex-end; justify-content:center; min-width:110px; height: 50px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
+                    <div id="rack-score-box" style="font-size:12px;color:rgba(255,255,255,.9);font-weight:700; margin-bottom:2px;">Puan: <span id="rack-score" style="color:#e8c84a;font-weight:900;font-size:16px;">—</span></div>
+                    <div id="rack-score-detail" style="font-size:10px;color:rgba(255,255,255,.5);font-weight:600; text-align:right; line-height: 1.1;"></div>
+                </div>
+                
+                <div class="player-info horizontal-pinfo" id="pinfo-0" style="margin: 0; min-width: 210px; height: 50px;">
+                    <div class="avatar-box"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23e8c84a'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>" alt="avatar"></div>
+                    <div class="info-col left">
+                        <div class="pname" id="n0">Sen</div>
+                        <div class="pscore" id="s0">0 Puan</div>
+                    </div>
+                    <div class="info-divider"></div>
+                    <div class="info-col right">
+                        <div class="p-timer" id="timer-0"></div>
+                        <div class="acilis-text" id="acilis-status">Henüz açılmadın</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="disc-pile-player" id="disc-player"><div id="disc-player-top"><span style="font-size:11px;color:rgba(255,255,255,.3)">atık</span></div></div>
+        </div>
+        
+        <div style="display: flex; flex-direction: row; align-items: flex-end; justify-content: center; gap: 40px; width: 100%;">
+            
+            <div class="acts-col">
+                <button class="btn btn-mode on" id="btn-diz" onclick="doSort('diz')">Diz</button>
+                <button class="btn btn-mode" id="btn-cift" onclick="doSort('cift')">Çift</button>
+                <button class="btn btn-mode" id="btn-cifte-git" onclick="doCifteGit()" style="background:#800080;border-color:#a020a0;color:#fff;">Çifte Git</button>
+                <button class="btn" id="geri-al-btn" onclick="doGeriAl()" style="background:#5a0000;border-color:#cc2200;color:#ffaaaa;display:none">Geri Al (+81)</button>
+                <button class="btn" onclick="lobiyeDon()" style="background:#1a3a6a;border-color:#3366cc;color:#aaccff;font-size:11px;">🚪 Lobiye</button>
+            </div>
+
+            <div class="rack-outer">
+                <div class="rack-row" id="row0"></div><div class="rack-divider"></div><div class="rack-row" id="row1"></div>
+            </div>
+            
+            <div class="acts-col">
+                <button class="btn btn-ac" id="ac-btn" onclick="showAcPanel()" disabled>Aç!</button>
+                <button class="btn btn-ac" id="auto-ac-seri-btn" onclick="doAutoAcSeri()" disabled style="background:#0a5a00;border-color:#22cc00">Seri Aç</button>
+                <button class="btn btn-ac" id="auto-ac-cift-btn" onclick="doAutoAcCift()" disabled style="background:#4a0080;border-color:#8000ff;color:#fff;">Çift Aç</button>
+                <button class="btn btn-isle" id="oto-isle-btn" onclick="doOtoIsle()" disabled style="display:none;">İşle</button>
+                <button class="btn btn-at" id="disc-btn" onclick="discardSelected()" disabled>Taşı At</button>
+                <button class="btn" id="btn-tasi-birak" onclick="doTasiBirak()" style="background:#995522;border-color:#cc7733;color:#fff;display:none">Bırak</button>
+            </div>
+
+        </div>
+
+    </div>
+  </div>
+  
+  <div id="ac-panel">
+    <h3>Taş Seç — Grup Oluştur ve Aç</h3><div id="ac-sel-tiles"></div>
+    <div class="ac-pts">Durum: <span id="ac-pts-min">0</span> | <span id="ac-status">—</span></div>
+    <div id="ac-btns"><button class="btn-ac-ok" id="ac-ok-btn" onclick="doAc()">Aç!</button><button class="btn-ac-cancel" onclick="hideAcPanel()">İptal</button></div>
+  </div>
+  
+  <div id="reject-modal" class="end-wrap">
+    <div class="end-card" style="max-width:320px;">
+      <h2 style="color:#ff4444; font-size:16px; margin-bottom:10px;">Taş İzni Reddedildi!</h2>
+      <p id="reject-text" style="font-size:12px; margin-bottom:15px; color:#ddd; line-height:1.4;"></p>
+      <div style="display:flex; gap:10px; justify-content:center;">
+        <button class="btn-new" style="background:#555; color:#fff;" onclick="onRejectVazgec()">Vazgeç</button>
+        <button class="btn-new" style="background:#800080; color:#fff;" onclick="onRejectCifteGit()">Çifte Git (Zorla Al)</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="skor-modal">
+    <div class="skor-card" id="skor-modal-content">
+        </div>
+  </div>
+  <div class="end-wrap" id="end-wrap">
+    <div class="end-card">
+      <div style="font-size:52px;margin-bottom:8px" id="end-icon">🏆</div>
+      <h2 id="end-title" style="font-size:26px;margin-bottom:8px;">—</h2>
+      <div id="end-scores" style="background:rgba(0,0,0,.3);border-radius:10px;padding:12px;margin-bottom:12px;font-size:13px;line-height:2;text-align:left;min-width:280px;"></div>
+      <p id="end-text" style="font-size:11px;margin-bottom:12px;color:rgba(255,255,255,.5);">—</p>
+      <button class="btn-new" onclick="goToLobby()">🏠 Lobiye Dön</button>
+    </div>
+  </div>
+ </div></div>
+<script>
+// --- LOBİ VE MASALARIN OLUŞTURULMASI ---
+function initLobby() {
+    const grid = document.getElementById('tables-grid');
+    grid.innerHTML = '';
+    for(let i=1; i<=40; i++) {
+        // Rastgele izleyiciler/oyuncular (görsellik katmak için eklenebilir ama şu an sade tutuldu)
+        grid.innerHTML += `
             <div class="masa-wrapper">
                 <div class="masa-board">
-                    <span>Masa 1</span>
-                    <small>Boş</small>
+                    <span>Masa ${i}</span>
+                    <small>10.000 🪙</small>
                 </div>
-                <div class="oyna-btn seat-top" onclick="izleMasa(1)">İzle</div>
-                <div class="oyna-btn seat-bottom">Otur</div>
-                <div class="oyna-btn seat-left">Otur</div>
-                <div class="oyna-btn seat-right">Otur</div>
+                <div class="oyna-btn seat-top" onclick="openSetup(${i})">OYNA</div>
+                <div class="oyna-btn seat-bottom" onclick="openSetup(${i})">OYNA</div>
+                <div class="oyna-btn seat-left" onclick="openSetup(${i})">OYNA</div>
+                <div class="oyna-btn seat-right" onclick="openSetup(${i})">OYNA</div>
+                <div style="position:absolute;bottom:-22px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.7);font-size:10px;padding:3px 10px;border-radius:10px;cursor:pointer;white-space:nowrap;" onclick="izleMasa(${i})">👁 İzle</div>
             </div>
-             <div class="masa-wrapper">
-                <div class="masa-board">
-                    <span>Masa 2</span>
-                    <small>1/4</small>
-                </div>
-                <div class="oyna-btn seat-top" onclick="izleMasa(2)">İzle</div>
-                <div class="oyna-btn seat-bottom">Dolu</div>
-                <div class="oyna-btn seat-left">Otur</div>
-                <div class="oyna-btn seat-right">Otur</div>
-            </div>
-        </div>
-    </div>
+        `;
+    }
+}
+// Sayfa yüklenince lobiyi oluştur
+// initLobby auth sonrası
 
-    <div id="game">
-        <div id="mode-badge" style="display: none; position: absolute; top: 10px; left: 10px; background: #e8c84a; color: #1a1a00; padding: 5px 10px; border-radius: 5px; font-weight: bold; z-index: 100;"></div>
-        <div id="game-board">
-             </div>
+function openSetup(masaNo) {
+    currentMasaNo = masaNo || 1;
+    if(currentUser && currentProfile) document.getElementById('pname').value = currentProfile.username;
+    else if(guestName) document.getElementById('pname').value = guestName;
+    document.getElementById('setup').style.display = 'flex';
+}
+function closeSetup() {
+    document.getElementById('setup').style.display = 'none';
+}
 
-        <button id="chat-toggle" onclick="toggleChat()" style="display:none; position: fixed; bottom: 20px; right: 20px; background: #e8c84a; color: #1a1a00; border: none; border-radius: 50%; width: 50px; height: 50px; font-size: 24px; cursor: pointer; z-index: 600; box-shadow: 0 4px 10px rgba(0,0,0,0.5);">💬</button>
-        <div id="chat-panel" style="position: fixed; top: 0; right: 0; bottom: 0; width: 300px; background: rgba(6, 32, 51, 0.95); border-left: 2px solid #e8c84a; transform: translateX(100%); transition: transform 0.3s ease; display: flex; flex-direction: column; z-index: 550; padding: 15px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; margin-bottom: 10px;">
-                <h3 style="color: #e8c84a; margin: 0;">Sohbet</h3>
-                <button onclick="toggleChat()" style="background: none; border: none; color: #fff; font-size: 20px; cursor: pointer;">✕</button>
-            </div>
-            <div id="chat-messages" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; padding-right: 5px;"></div>
-            <div style="display: flex; gap: 5px;">
-                <input type="text" id="chat-input" placeholder="Mesaj yaz..." style="flex: 1; padding: 8px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.5); color: #fff;">
-                <button onclick="sendChatMsg()" style="padding: 8px 15px; background: #e8c84a; color: #1a1a00; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">Gönder</button>
-            </div>
-        </div>
-    </div>
+// --- MEVCUT OYUN DEĞİŞKENLERİ ---
+const COLS=['r','b','g','k'];
+const CLONG={r:'Kırmızı',b:'Mavi',g:'Sarı',k:'Siyah'};
+const CSYM={r:'♥',b:'♦',g:'♣',k:'♠'};
+const NSLOTS=16;
+let G={}; let sortMode='diz'; let DG={active:false,id:null,fr:-1,fs:-1,startX:0,startY:0,moved:false};
+let lastTap={id:null,t:0}; let acSelIds=[]; let turnTimer = null; let gameScale = 1;
 
-    <div id="profile-modal" style="display: none; position: fixed; inset: 0; align-items: center; justify-content: center; background: rgba(0,0,0,0.85); z-index: 1000;">
-        <div style="background: #062033; border: 2px solid #e8c84a; border-radius: 16px; padding: 25px; width: 100%; max-width: 400px; position: relative;">
-            <button onclick="document.getElementById('profile-modal').style.display='none'" class="close-modal-btn">×</button>
-            <div id="profile-content"></div>
-        </div>
-    </div>
+function doResize() {
+  const board = document.getElementById('game-board'); if(!board) return;
+  const scaleX = (window.innerWidth - 40) / 1140; const scaleY = (window.innerHeight - 80) / 660;
+  gameScale = Math.max(0.3, Math.min(1.45, Math.min(scaleX, scaleY))); board.style.transform = `scale(${gameScale})`;
+}
+window.addEventListener('resize', doResize); window.addEventListener('orientationchange', () => setTimeout(doResize, 150));
 
-    <div id="auth-screen" style="position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle at center, #1a4a6b, #062033); z-index: 1000;">
-         <div style="background: rgba(0,0,0,0.5); padding: 30px; border-radius: 15px; border: 2px solid #e8c84a; text-align: center; width: 300px;">
-            <h2 style="color: #e8c84a; margin-bottom: 20px;">81 OKEY GİRİŞ</h2>
-            <div style="display: flex; justify-content: space-around; margin-bottom: 15px;">
-                <span id="tab-giris" onclick="switchAuthTab('giris')" style="cursor: pointer; padding: 5px 10px; background: #e8c84a; color: #1a1a00; border-radius: 5px; font-weight: bold;">Giriş Yap</span>
-                <span id="tab-kayit" onclick="switchAuthTab('kayit')" style="cursor: pointer; padding: 5px 10px; background: rgba(0,0,0,.3); color: rgba(255,255,255,.5); border-radius: 5px; font-weight: bold;">Kayıt Ol</span>
-            </div>
-            
-            <div id="auth-giris">
-                <input type="text" id="giris-email" placeholder="E-posta" style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 5px; border: none;">
-                <input type="password" id="giris-sifre" placeholder="Şifre" style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 5px; border: none;">
-                <button onclick="doGiris()" style="width: 100%; padding: 10px; background: #e8c84a; color: #1a1a00; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">GİRİŞ YAP</button>
-            </div>
-            
-            <div id="auth-kayit" style="display: none;">
-                 <input type="text" id="kayit-kullanici" placeholder="Kullanıcı Adı" style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 5px; border: none;">
-                <input type="text" id="kayit-email" placeholder="E-posta" style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 5px; border: none;">
-                <input type="password" id="kayit-sifre" placeholder="Şifre (En az 6 haneli)" style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 5px; border: none;">
-                <button onclick="doKayit()" style="width: 100%; padding: 10px; background: #e8c84a; color: #1a1a00; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">KAYIT OL</button>
-            </div>
+function cloneState() { return { grid: G.grid.map(row => row.map(t => t ? {...t} : null)), tableGroups: G.tableGroups.map(grp => grp.map(t => ({...t}))) }; }
+function spawnFloatingText(text, color) {
+    const ft = document.createElement('div'); ft.textContent = text;
+    ft.style.cssText = `position:fixed;top:40%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.9);color:${color};font-size:26px;font-weight:900;padding:20px 40px;border-radius:15px;border:4px solid ${color};z-index:9999;pointer-events:none;animation:floatUp 2.5s ease-out forwards;text-shadow: 2px 2px 4px #000;box-shadow: 0 10px 30px rgba(0,0,0,0.5);text-align:center;`;
+    document.body.appendChild(ft); setTimeout(() => ft.remove(), 2500);
+}
 
-            <p id="auth-error" style="color: #ff4444; font-size: 12px; margin-top: 10px; min-height: 15px;"></p>
-            
-            <hr style="border-color: rgba(255,255,255,0.1); margin: 15px 0;">
-            <button onclick="doMisafir()" style="width: 100%; padding: 10px; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.3); border-radius: 5px; cursor: pointer;">Misafir Olarak Gir</button>
-         </div>
-    </div>
+function applyPenalty(player, amount, msgStr) {
+    G.roundPenalties[player] += amount;
+    G.scores[player] += amount;
+    if (G.isEsli) {
+        const tIdx = (player === 0 || player === 2) ? 0 : 1;
+        G.teamScores[tIdx] += amount;
+        G.scores[0] = G.scores[2] = G.teamScores[0];
+        G.scores[1] = G.scores[3] = G.teamScores[1];
+    }
+    updScores();
+    if (msgStr) spawnFloatingText(msgStr, '#ff4444');
+}
 
+function checkAndApplyBonus(player, type, val) {
+    let bonus = 0; let msg = '';
+    if (type === 'seri') {
+        if (val >= 121) { bonus = -200; msg = '🌟 121+ ile Açılış: -200 Puan'; }
+        else if (val >= 101) { bonus = -100; msg = '⭐ 101+ ile Açılış: -100 Puan'; }
+    } else if (type === 'cift') {
+        if (val >= 6) { bonus = -200; msg = '🌟 6+ Çift ile Açılış: -200 Puan'; }
+        else if (val >= 5) { bonus = -100; msg = '⭐ 5 Çift ile Açılış: -100 Puan'; }
+    }
+    if (bonus !== 0) {
+        G.roundBonus[player] += bonus; 
+        G.scores[player] += bonus;
+        if (G.isEsli) { const tIdx = (player === 0 || player === 2) ? 0 : 1; G.teamScores[tIdx] += bonus; G.scores[0]=G.scores[2]=G.teamScores[0]; G.scores[1]=G.scores[3]=G.teamScores[1]; }
+        updScores();
+        if (player === 0) spawnFloatingText(msg, '#88ff88');
+        else spawnFloatingText(G.names[player] + ' ' + msg, '#88ff88');
+    }
+}
+
+function addExtraTime() {
+    if (G.turn === 0) {
+        G.timeLeft = G.acikTime;
+        updTimerUI();
+    }
+}
+
+function pick(el,g){document.querySelectorAll('#'+g+' .cb').forEach(b=>b.classList.remove('on'));el.classList.add('on');}
+function val(g){return document.querySelector('#'+g+' .on')?.dataset.v}
+function setMsg(m){document.getElementById('msg').textContent=m;}
+function makeDeck(){let d=[];for(let c of COLS)for(let n=1;n<=13;n++){d.push({c,n,id:c+n+'a'});d.push({c,n,id:c+n+'b'});}d.push({c:'j',n:0,id:'j1',jok:true});d.push({c:'j',n:0,id:'j2',jok:true});return d;}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function emptyGrid(){return[new Array(NSLOTS).fill(null),new Array(NSLOTS).fill(null)];}
+function getOkey(t){if(t.jok)return{c:'j',n:0,jok:true};return{c:t.c,n:t.n===13?1:t.n+1};}
+function isOkey(t){if(!G.okey) return false;if(t.jok) return false; return t.c===G.okey.c && t.n===G.okey.n;}
+function tLong(t){if(!t)return'?';if(t.jok) return 'Sahte Okey (' + CLONG[t.c] + ' ' + t.n + ')';if(isOkey(t)) return 'Joker (' + CLONG[t.c] + ' ' + t.n + ')';return CLONG[t.c]+' '+t.n;}
+function tLabel(t){if(t.jok) return '★'; return t.n; }
+function tSub(t){if(t.jok) return G.yardim ? 'sahte' : CSYM[t.c]; if(isOkey(t)) return G.yardim ? '★' : (CSYM[t.c]||''); return CSYM[t.c]||'';}
+function tCls(t){if(t.jok) return 'ok'; if(isOkey(t)) return G.yardim ? (t.c + ' real-okey') : t.c; return t.c;}
+function tVal(t){if(isOkey(t))return 0;return t.n;}
+function getHand(){return G.grid.flat().filter(Boolean);}
+function firstEmpty(){for(let r=1;r>=0;r--)for(let s=NSLOTS-1;s>=0;s--)if(!G.grid[r][s])return[r,s];return[-1,-1];}
+
+function startGame(){
+  const diff = val('diffs')||'medium', totalEl = parseInt(val('elSayisi')||'5'), acilisPuan = parseInt(val('acilis')||'81');
+  const normalTime = parseInt(val('normal-sure')||'15'), acikTime = parseInt(val('acik-sure')||'30'), pn=document.getElementById('pname').value.trim()||'Oyuncu';
+  const isEsli = val('oyunTuru') === 'esli'; 
+  const yardim = val('yardimModu') !== 'yardimsiz';
+  
+  G={ diff, totalEl, acilisPuan, curEl:1, scores:[0,0,0,0], teamScores:[0,0], isEsli, yardim, names:[pn,'Bot 1','Bot 2','Bot 3'], normalTime, acikTime, timeLeft: 0, mustUseTile: null, mustOpenThisTurn: false,
+    deck:[], disc:[], grid:emptyGrid(), opp:[[],[],[]], okey:null, gosterge:null, turn:0, phase:'discard', sel:null, acildi:[false,false,false,false], tableGroups:[], playerDisc:[], oppDisc:[[],[],[]], hiddenOkeys:new Set(), eldenBiten:false, okeyBiten:false, turnStartedOpen: false, islenenBuTur: 0, preOpenState: null, cifteGidiyor: [false,false,false,false], pendingTile: null,
+    highestSeri: acilisPuan - 1, highestCift: 3, acilisDegeri: [null, null, null, null],
+    history: []
+  };
+  
+  if (G.isEsli) {
+      document.getElementById('sc-n0').innerHTML = 'Biz (<span style="color:#e8c84a">Sen</span>):';
+      document.getElementById('sc-n2').innerHTML = 'Biz (<span style="color:#aaa">Ortak</span>):';
+      document.getElementById('sc-n1').innerHTML = 'Onlar (<span style="color:#aaa">Bot 1</span>):';
+      document.getElementById('sc-n3').innerHTML = 'Onlar (<span style="color:#aaa">Bot 3</span>):';
+  } else {
+      document.getElementById('sc-n0').textContent = pn + ':';
+      document.getElementById('sc-n2').textContent = 'Bot 2:';
+      document.getElementById('sc-n1').textContent = 'Bot 1:';
+      document.getElementById('sc-n3').textContent = 'Bot 3:';
+  }
+
+  document.getElementById('n0').textContent=pn;
+  document.getElementById('acilis-chip').textContent='Açılış: '+acilisPuan+'p';
+  
+  // Lobi ve modal kapatılıyor, oyun açılıyor
+  document.getElementById('lobby').style.display='none'; 
+  document.getElementById('setup').style.display='none'; 
+  document.getElementById('game').style.display='flex';
+  
+  doResize(); setTimeout(doResize, 50);
+  document.getElementById('disc-player').addEventListener('click',()=>{if(G.turn===0&&G.phase==='discard'&&G.sel) doDiscard(G.sel);});
+  if(gameMode === 'online' && currentUser) {
+    currentRoomId = 'masa-' + (currentMasaNo||1);
+    document.getElementById('mode-badge').textContent = '🌐 Çevrimiçi — Masa ' + (currentMasaNo||1);
+    document.getElementById('mode-badge').style.display = 'block';
+    subscribeToChatRoom(currentRoomId);
+    document.getElementById('chat-toggle').style.display = 'flex';
+  } else {
+    currentRoomId = 'local-' + Date.now();
+    document.getElementById('mode-badge').textContent = '🤖 Tek Başına — XP Kazanılmaz';
+    document.getElementById('mode-badge').style.display = 'block';
+  }
+  deal();
+}
+
+function deal(){
+  G.deck=shuffle(makeDeck());G.grid=emptyGrid();G.opp=[[],[],[]];G.disc=[];G.sel=null;G.phase='discard';G.turn=0;
+  G.playerDisc=[];G.oppDisc=[[],[],[]];G.hiddenOkeys=new Set(); G.acildi=[false,false,false,false];
+  G.mustUseTile = null; G.mustOpenThisTurn = false; G.tableGroups=[];G.eldenBiten=false;G.okeyBiten=false;acSelIds=[];
+  G.turnStartedOpen = false; G.islenenBuTur = 0; G.preOpenState = null; G.cifteGidiyor = [false,false,false,false]; G.pendingTile = null;
+  G.highestSeri = G.acilisPuan - 1; G.highestCift = 3; G.acilisDegeri = [null, null, null, null];
+  G.roundBonus = [0,0,0,0]; G.roundPenalties = [0,0,0,0];
+  
+  const btnCifte = document.getElementById('btn-cifte-git'); if (btnCifte) { btnCifte.classList.remove('on'); btnCifte.textContent = 'Çifte Git'; btnCifte.disabled = false; }
+  document.getElementById('n0').textContent = G.names[0];
+  let gostIdx; do { gostIdx=Math.floor(Math.random()*G.deck.length); } while(G.deck[gostIdx].jok);
+  const gosterge=G.deck.splice(gostIdx,1)[0]; G.gosterge=gosterge; G.okey=getOkey(gosterge); G.deck.unshift(gosterge);
+  G.deck.forEach(t => { if (t.jok) { t.c = G.okey.c; t.n = G.okey.n; } });
+  const tiles=[];for(let i=0;i<15;i++)tiles.push(G.deck.pop());
+  for(let i=0;i<14;i++)G.opp[0].push(G.deck.pop()); for(let i=0;i<14;i++)G.opp[1].push(G.deck.pop()); for(let i=0;i<14;i++)G.opp[2].push(G.deck.pop());
+  tiles.forEach((t,i)=>{const r=i<8?0:1,s=i<8?i:i-8;G.grid[r][s]=t;});
+  document.getElementById('el-chip').textContent='El: '+G.curEl+'/'+G.totalEl; document.getElementById('okey-bar').textContent='Okey: '+CLONG[G.okey.c]+' '+G.okey.n;
+  renderGosterge(); renderAll(); setMsg('15 taşın var! Aç, taşı at veya bitir.'); updTurn();updBtns();updAcilisStatus(); startTimer(); 
+}
+
+function updAcilisStatus() {
+  const statusEl = document.getElementById('acilis-status');
+  if (!G.acildi[0]) {
+      statusEl.textContent = 'Henüz açılmadın';
+      statusEl.style.color = 'rgba(255,255,255,.4)';
+  } else {
+      statusEl.textContent = G.acilisDegeri[0];
+      statusEl.style.color = '#88ff88';
+  }
+  for(let i=1; i<4; i++){
+      const el = document.getElementById('acilis-text-'+i);
+      if(el) el.textContent = G.acilisDegeri[i] || '';
+  }
+}
+
+function startTimer() {
+  if (turnTimer) clearInterval(turnTimer); G.timeLeft = G.acildi[G.turn] ? G.acikTime : G.normalTime; updTimerUI();
+  turnTimer = setInterval(() => { G.timeLeft--; updTimerUI(); if (G.timeLeft <= 0) { clearInterval(turnTimer); if (G.turn === 0) autoPlayHuman(); } }, 1000);
+}
+
+function updTimerUI() {
+  const tc = document.getElementById('timer-chip'); tc.textContent = `⏳ ${G.timeLeft}s`;
+  if(G.timeLeft <= 5 && G.turn === 0) tc.style.color = '#ff4444'; else tc.style.color = '#ffdd55';
+  const pt = document.getElementById('timer-'+G.turn);
+  if(pt) { pt.textContent = `⏳ ${G.timeLeft}s`; if(G.timeLeft <= 5) pt.classList.add('warn'); else pt.classList.remove('warn'); }
+}
+
+function updTurn(){
+  document.getElementById('turn-chip').textContent='Sıra: '+G.names[G.turn];
+  for(let i=0; i<4; i++){ const pinfo = document.getElementById('pinfo-'+i), ptimer = document.getElementById('timer-'+i); if(pinfo) pinfo.classList.remove('active-player'); if(ptimer) { ptimer.textContent = ''; ptimer.classList.remove('warn'); } }
+  const activePinfo = document.getElementById('pinfo-'+G.turn); if(activePinfo) activePinfo.classList.add('active-player');
+}
+
+function autoPlayHuman() {
+  if (G.turn !== 0) return;
+  if(DG.active){ DG.active = false; document.getElementById('ghost').style.display = 'none'; document.querySelectorAll('.slot.hov, .open-group-row.hov, .has-pair.hov').forEach(el=>el.classList.remove('hov')); document.getElementById('disc-player').classList.remove('drop-fin'); renderRack(); }
+  if(document.getElementById('ac-panel').style.display !== 'none') hideAcPanel();
+  if(document.getElementById('reject-modal').classList.contains('show')) onRejectVazgec(); 
+  
+  if(G.mustOpenThisTurn && !G.acildi[0]) { applyPenalty(0, 81, 'Açmadınız! +81 Ceza'); setMsg('Süre bitti! Yandan taş alıp açmadığınız/çifte gitmediğiniz için +81 puan ceza yediniz.'); G.mustOpenThisTurn = false; G.mustUseTile = null; } 
+  else if(G.mustUseTile) { const stillInHand = getHand().some(t => t.id === G.mustUseTile); if(stillInHand && G.acildi[0]) { applyPenalty(0, 81, 'Aldığınız taşı işleyin! +81 Ceza'); setMsg('Süre bitti! Yandan aldığınız taşı işlemediğiniz için +81 puan ceza yediniz.'); } G.mustUseTile = null; }
+  
+  if (G.phase === 'draw') { if(G.deck.length > 0) { const t = G.deck.pop(); const [r,s] = firstEmpty(); if(r >= 0) G.grid[r][s] = t; G.phase = 'discard'; renderAll(); setMsg('Süre bitti, desteden otomatik taş çekildi.'); } else { endEl(-1); return; } }
+  
+  const hand = getHand(); if (hand.length > 0) { let wi=0,wv=-1;for(let i=0;i<hand.length;i++){if(isOkey(hand[i]))continue;if(hand[i].n>wv){wv=hand[i].n;wi=i;}} const atilan = hand[wi]; if (atilan) { setMsg('Süre bitti, otomatik hamle yapıldı.'); doDiscard(atilan.id); } }
+}
+
+function renderGosterge(){
+  const area=document.getElementById('gosterge-area');
+  if(!G.gosterge){area.innerHTML='';return;}
+  const el=document.createElement('div'); el.className='tile '+tCls(G.gosterge); el.style.cssText='cursor:default;pointer-events:none;'; el.innerHTML=`<span class="tv">${tLabel(G.gosterge)}</span><span class="tc">${tSub(G.gosterge)}</span>`; area.innerHTML=''; area.appendChild(el); 
+}
+
+function renderAll(){renderRack();renderDisc();document.getElementById('dc').textContent=G.deck.length;document.getElementById('deck-chip').textContent='Deste: '+G.deck.length;updScores();calcRackScore();renderTable();}
+
+function renderRack(){
+  for(let r=0;r<2;r++){
+    const rowEl=document.getElementById('row'+r); rowEl.innerHTML='';
+    for(let s=0;s<NSLOTS;s++){
+      const t=G.grid[r][s];
+      if(t){
+        const inAcSel=acSelIds.includes(t.id), isDragging=DG.active&&DG.id===t.id, isHidden=isOkey(t)&&G.hiddenOkeys&&G.hiddenOkeys.has(t.id);
+        const isIsler = G.yardim && !isOkey(t) && G.tableGroups && G.tableGroups.length > 0 && canAddTileToAnyGroup(t);
+        const el=document.createElement('div'); el.className='tile '+(isHidden?'k':tCls(t))+(G.sel===t.id?' sel-t':'')+(isDragging?' is-drag':'')+(inAcSel?' sel-t':'')+(isIsler?' isler-tas':'');
+        if(isHidden){el.innerHTML=`<span class="tv">?</span><span class="tc" style="font-size:8px;opacity:.6">gizli</span>`; el.title='Okey — sağ tık ile göster';} 
+        else {el.innerHTML=`<span class="tv">${tLabel(t)}</span><span class="tc">${tSub(t)}</span>`; el.title=isOkey(t)?'Okey — sağ tık ile gizle':tLong(t);}
+        el.dataset.r=r; el.dataset.s=s; el.dataset.id=t.id; el.addEventListener('pointerdown', function(e){ if(e.pointerType === 'mouse' && e.button !== 0) return; onTileMouseDown(e, t.id, r, s); });
+        if(isOkey(t)){el.addEventListener('contextmenu', function(e){e.preventDefault(); if(G.hiddenOkeys.has(t.id)) G.hiddenOkeys.delete(t.id); else G.hiddenOkeys.add(t.id); renderRack();});}
+        rowEl.appendChild(el);
+      } else { const el=document.createElement('div'); el.className='slot'; el.dataset.r=r; el.dataset.s=s; rowEl.appendChild(el); }
+    }
+  }
+}
+
+function onTileMouseDown(e, id, r, s){
+  DG={active:false, id, fr:r, fs:s, startX:e.clientX, startY:e.clientY, moved:false};
+  function onPointerMove(ev){
+    const dx=ev.clientX-DG.startX, dy=ev.clientY-DG.startY;
+    if(!DG.active && Math.sqrt(dx*dx+dy*dy)>6){
+      DG.active=true; DG.moved=true; const gh=document.getElementById('ghost'); const t=G.grid[DG.fr][DG.fs]; if(!t){cleanup();return;}
+      const bgM={r:'#fff0f0',b:'#f0f0ff',g:'#e8ffd8',k:'#f2f2f2',ok:'#1a0a3a'}, coM={r:'#cc0000',b:'#0044cc',g:'#118833',k:'#111',ok:'#f5d84a'}, cl=tCls(t);
+      gh.style.background=bgM[cl]||'#f0f0f0'; gh.style.color=coM[cl]||'#111'; gh.innerHTML=`<span style="font-size:26px;font-weight:900;line-height:1;margin-top:-2px;">${tLabel(t)}</span><span style="font-size:12px;font-weight:700;margin-top:2px;">${tSub(t)}</span>`; gh.style.display='flex'; renderRack();
+    }
+    if(DG.active){
+      const gh=document.getElementById('ghost'); gh.style.left=ev.clientX+'px'; gh.style.top=ev.clientY+'px'; gh.style.transform = `translate(-50%,-65%) scale(${gameScale * 1.15})`;
+      document.querySelectorAll('.slot.hov').forEach(el=>el.classList.remove('hov')); 
+      document.querySelectorAll('.open-group-row.hov, .has-pair.hov').forEach(el=>el.classList.remove('hov'));
+      
+      const dfp=document.getElementById('disc-player'),dfr=dfp.getBoundingClientRect(); dfp.classList.toggle('drop-fin', G.turn===0&&G.phase==='discard'&&ev.clientX>=dfr.left&&ev.clientX<=dfr.right&&ev.clientY>=dfr.top&&ev.clientY<=dfr.bottom);
+      gh.style.visibility='hidden'; const under=document.elementFromPoint(ev.clientX,ev.clientY); gh.style.visibility='visible';
+      
+      under?.closest?.('.slot')?.classList.add('hov'); 
+      if(G.acildi[0] && G.turn===0 && G.phase==='discard') { 
+          const grp = under?.closest?.('.open-group-row, .has-pair'); 
+          if (grp) grp.classList.add('hov'); 
+      }
+    }
+  }
+  function onPointerUp(ev){
+    cleanup(); document.querySelectorAll('.slot.hov').forEach(el=>el.classList.remove('hov')); document.querySelectorAll('.open-group-row.hov, .has-pair.hov').forEach(el=>el.classList.remove('hov')); const dfp=document.getElementById('disc-player'); dfp.classList.remove('drop-fin'); document.getElementById('ghost').style.display='none';
+    if(!DG.moved){ const now=Date.now(); if(lastTap.id===id && now-lastTap.t<400){ lastTap={id:null,t:0}; if(G.turn===0&&G.phase==='discard') doDiscard(id); } else { lastTap={id,t:now}; const acPanel=document.getElementById('ac-panel'); if(acPanel.style.display!=='none'){ const idx=acSelIds.indexOf(id); if(idx>=0) acSelIds.splice(idx,1); else acSelIds.push(id); renderRack(); renderAcPanel(); } else { G.sel = G.sel===id ? null : id; renderRack(); updBtns(); } } return; }
+    const cx=ev.clientX, cy=ev.clientY, dfr=dfp.getBoundingClientRect(); if(G.turn===0&&G.phase==='discard'&&cx>=dfr.left&&cx<=dfr.right&&cy>=dfr.top&&cy<=dfr.bottom){ doDiscard(DG.id); return; }
+    document.getElementById('ghost').style.visibility='hidden'; const under=document.elementFromPoint(cx,cy); document.getElementById('ghost').style.visibility='visible'; 
+    const droppedGroup = under?.closest('.open-group-row, .has-pair');
+    
+    if(G.acildi[0] && G.turn===0 && G.phase==='discard' && droppedGroup) {
+      const gi = parseInt(droppedGroup.dataset.gi); G.sel = DG.id; const tile = getHand().find(t=>t.id===DG.id); const grp = G.tableGroups[gi];
+      if(tile && grp) { 
+          const swapIdx = getOkeySwapIndex(grp, tile); 
+          if (swapIdx !== -1) { doOkeySwap(gi, swapIdx, tile); DG.active=false; renderRack(); return; } 
+          if(canAddToGroup(grp, tile, 'end')) { doEklePos(gi, 'end'); DG.active=false; renderRack(); return; } 
+          if(canAddToGroup(grp, tile, 'start')) { doEklePos(gi, 'start'); DG.active=false; renderRack(); return; } 
+          setMsg(grp.length >= 8 ? 'Grup en fazla 8 taş olabilir!' : 'Bu taş bu gruba işlenemez!'); 
+      }
+      DG.active=false; renderRack(); return;
+    }
+    const tgt=under?.closest?.('[data-r][data-s]'); if(tgt){ const tr=parseInt(tgt.dataset.r), ts=parseInt(tgt.dataset.s), fr=DG.fr, fs=DG.fs; if(tr!==fr||ts!==fs){ const mv=G.grid[fr][fs], de=G.grid[tr][ts]; G.grid[tr][ts]=mv; G.grid[fr][fs]=de; } }
+    DG.active=false; renderRack(); calcRackScore(); updBtns();
+  }
+  function cleanup(){ document.removeEventListener('pointermove', onPointerMove); document.removeEventListener('pointerup', onPointerUp); document.removeEventListener('pointercancel', onPointerUp); }
+  document.addEventListener('pointermove', onPointerMove); document.addEventListener('pointerup', onPointerUp); document.addEventListener('pointercancel', onPointerUp);
+}
+
+function renderDisc(){
+  const pp=document.getElementById('disc-player'),pt=document.getElementById('disc-player-top');
+  if(!G.playerDisc.length){ pp.classList.remove('has'); pt.innerHTML='<span style="font-size:11px;color:rgba(255,255,255,.3)">atık</span>'; } 
+  else { pp.classList.add('has'); pt.innerHTML=''; const top=G.playerDisc[G.playerDisc.length-1]; const el=document.createElement('div'); el.className='tile ' + tCls(top); el.style.cssText='cursor:default;pointer-events:none;'; el.innerHTML=`<span class="tv">${tLabel(top)}</span><span class="tc">${tSub(top)}</span>`; pt.appendChild(el); }
+  for(let p=1;p<=3;p++){
+    const area=document.getElementById('disc-opp'+p); if(!area)continue; area.innerHTML=''; const lastDiscs=G.oppDisc[p-1];
+    if(p === 3 && G.turn === 0 && G.phase === 'draw' && lastDiscs && lastDiscs.length > 0) { area.classList.add('takeable'); area.title = 'Tıklayarak taşı alın'; area.onclick = () => takeSideTile(); } else { area.classList.remove('takeable'); area.title = ''; area.onclick = null; }
+    if(!lastDiscs||!lastDiscs.length){ area.innerHTML='<span style="font-size:11px;color:rgba(255,255,255,.25)">atık</span>'; } else { const top=lastDiscs[lastDiscs.length-1]; const el=document.createElement('div'); el.className='tile '+tCls(top); el.style.cssText='cursor:default;pointer-events:none;'; el.innerHTML=`<span class="tv">${tLabel(top)}</span><span class="tc">${tSub(top)}</span>`; area.appendChild(el); }
+  }
+}
+
+function takeSideTile() {
+    if(G.turn !== 0 || G.phase !== 'draw') return;
+    const globalPrevIdx = 3; const oppDiscIdx = 2; const discards = G.oppDisc[oppDiscIdx];
+    if(!discards || discards.length === 0) return;
+
+    const tile = discards[discards.length - 1];
+
+    if (G.cifteGidiyor[0] || G.acildi[0] === 'cift') {
+        processSideTileTake(tile, oppDiscIdx, true);
+        return;
+    }
+
+    let botRejects = false;
+    
+    if (G.cifteGidiyor[globalPrevIdx] || G.acildi[globalPrevIdx] === 'cift') {
+        botRejects = true;
+    } else {
+        const pairs = findPairGroups(G.opp[oppDiscIdx]);
+        if (pairs.length >= 3 || Math.random() < 0.25) { 
+            botRejects = true;
+        }
+    }
+
+    if (botRejects) {
+        G.cifteGidiyor[globalPrevIdx] = true;
+        
+        if (G.acildi[0] === 'seri') {
+            spawnFloatingText('Taş Alınamaz!', '#ff4444');
+            setMsg(`${G.names[globalPrevIdx]} çifte gidiyor/açtı. Seri açtığın için ondan taş alamazsın!`);
+            return;
+        }
+        
+        G.pendingTile = { tile: tile, oppDiscIdx: oppDiscIdx };
+        
+        document.getElementById('reject-text').innerHTML = `${G.names[globalPrevIdx]} çifte gittiği için taş almana izin vermiyor.<br><br>Sadece sen de çifte gidersen alabilirsin. Ne yapmak istersin?`;
+        document.getElementById('reject-modal').classList.add('show');
+    } else {
+        setMsg(`${G.names[globalPrevIdx]} taşı almana olur verdi.`);
+        processSideTileTake(tile, oppDiscIdx, false);
+    }
+}
+
+function processSideTileTake(tile, oppDiscIdx, isCifte) {
+    executeTakeSideTile(tile, oppDiscIdx);
+    if (isCifte && !G.acildi[0]) {
+        setMsg('Çifte gittiğin için yandan taşı serbestçe aldın.');
+    } else {
+        G.mustUseTile = tile.id; 
+        if(G.acildi[0]) { setMsg('Yandan taş aldınız! Bu taşı işlemek veya YENİ bir grupla açmak zorundasınız.'); } 
+        else { G.mustOpenThisTurn = true; setMsg('Yandan taş aldınız! Ya elini AÇMALISIN ya da ÇİFTE GİT butonuna basmalısın.'); }
+    }
+    G.islenenBuTur = 0; updBtns();
+}
+
+function onRejectVazgec() {
+    document.getElementById('reject-modal').classList.remove('show');
+    G.pendingTile = null;
+    setMsg('Taş almaktan vazgeçtin. Desteden çekebilirsin.');
+}
+
+function onRejectCifteGit() {
+    document.getElementById('reject-modal').classList.remove('show');
+    if (G.pendingTile) {
+        G.cifteGidiyor[0] = true;
+        const btn = document.getElementById('btn-cifte-git'); 
+        if(btn) { btn.classList.add('on'); btn.textContent = 'Çifte Gidiliyor'; btn.disabled = true; }
+        
+        processSideTileTake(G.pendingTile.tile, G.pendingTile.oppDiscIdx, true);
+        G.pendingTile = null;
+        setMsg('İzin verilmediği halde taşı zorla aldın! Artık Çifte gitmek zorundasın.');
+    }
+}
+
+function doCifteGit() {
+    if(G.turn !== 0 || G.acildi[0]) return; G.cifteGidiyor[0] = true;
+    const btn = document.getElementById('btn-cifte-git'); btn.classList.add('on'); btn.textContent = 'Çifte Gidiliyor'; btn.disabled = true; 
+    
+    if(G.mustOpenThisTurn) {
+        G.mustOpenThisTurn = false;
+        G.mustUseTile = null;
+        setMsg('Çifte gitmeye karar verdin! Açma zorunluluğu kalktı.');
+    } else {
+        setMsg('Çifte gitme modu aktif! Açmak zorunda kalmadan yandan taş alabilirsin.');
+    }
+    updBtns();
+}
+
+function doTasiBirak() {
+    if (G.turn !== 0 || G.phase !== 'discard' || !G.mustUseTile) return;
+    let foundTile = null; for (let r = 0; r < 2; r++) { for (let s = 0; s < NSLOTS; s++) { if (G.grid[r][s] && G.grid[r][s].id === G.mustUseTile) { foundTile = G.grid[r][s]; G.grid[r][s] = null; break; } } if (foundTile) break; }
+    if (foundTile) { 
+        G.oppDisc[2].push(foundTile); G.mustUseTile = null; G.mustOpenThisTurn = false; G.phase = 'draw'; 
+        applyPenalty(0, 81, 'Taşı Geri Bıraktın! +81 Ceza'); setMsg('Aldığınız taşı geri bıraktınız. +81 Puan Ceza!'); 
+        renderAll(); updBtns(); 
+    } else { setMsg('Taş elinizde bulunamadı (işlenmiş veya açılmış olabilir).'); }
+}
+
+function canAddTileToAnyGroup(tile) {
+    for(let gi=0; gi<G.tableGroups.length; gi++) { const grp = G.tableGroups[gi]; if(getOkeySwapIndex(grp, tile) !== -1) return true; if(canAddToGroup(grp, tile, 'end')) return true; if(canAddToGroup(grp, tile, 'start')) return true; } return false;
+}
+
+function executeTakeSideTile(tile, oppDiscIdx) {
+    G.oppDisc[oppDiscIdx].pop(); const [r,s] = firstEmpty(); if(r >= 0) G.grid[r][s] = tile;
+    G.phase = 'discard'; renderAll();
+}
+
+function renderTable() {
+    const ts = document.getElementById('table-series');
+    const tper = document.getElementById('table-pers');
+    const tp = document.getElementById('table-pairs');
+    ts.innerHTML = ''; tper.innerHTML = ''; tp.innerHTML = '';
+
+    const seriesRows = [];
+    for(let i=0; i<12; i++) {
+        const row = document.createElement('div'); row.className = 'series-row';
+        for(let j=0; j<13; j++) {
+            const cell = document.createElement('div'); cell.className = 'board-cell';
+            row.appendChild(cell);
+        }
+        ts.appendChild(row); seriesRows.push(row);
+    }
+
+    const perRows = [];
+    for(let i=0; i<12; i++) {
+        const row = document.createElement('div'); row.className = 'per-row';
+        for(let j=0; j<4; j++) {
+            const cell = document.createElement('div'); cell.className = 'board-cell';
+            row.appendChild(cell);
+        }
+        tper.appendChild(row); perRows.push(row);
+    }
+
+    const pairSlots = [];
+    for(let i=0; i<12; i++) {
+        const row = document.createElement('div'); row.className = 'pair-row';
+        for(let j=0; j<3; j++) {
+            const cell = document.createElement('div'); cell.className = 'pair-cell';
+            const c1 = document.createElement('div'); c1.className = 'board-cell';
+            const c2 = document.createElement('div'); c2.className = 'board-cell';
+            cell.appendChild(c1); cell.appendChild(c2);
+            row.appendChild(cell);
+            pairSlots.push(cell); 
+        }
+        tp.appendChild(row); 
+    }
+
+    let sIdx = 0, perIdx = 0, pIdx = 0;
+    const canAct = G.turn===0 && G.phase==='discard' && G.acildi[0];
+
+    G.tableGroups.forEach((grp, gi) => {
+        const isPair = grp.length === 2;
+
+        if (isPair) {
+            if (pIdx < 36) {
+                const slot = pairSlots[pIdx++];
+                slot.dataset.gi = gi;
+                slot.classList.add('has-pair');
+                
+                if(canAct) slot.addEventListener('click', () => onGrpClick(gi));
+                
+                grp.forEach((t, i) => {
+                    const el = document.createElement('div'); el.className = 'tile board ' + tCls(t); el.innerHTML=`<span class="tv">${tLabel(t)}</span><span class="tc">${tSub(t)}</span>`;
+                    slot.children[i].innerHTML = ''; 
+                    slot.children[i].appendChild(el);
+                });
+            }
+        } else {
+            const norms = grp.filter(t => !isOkey(t));
+            const isPer = new Set(norms.map(t => t.n)).size === 1;
+
+            if (isPer) {
+                if (perIdx < 12) {
+                    const row = perRows[perIdx++];
+                    row.dataset.gi = gi;
+                    row.classList.add('open-group-row');
+                    if(canAct) row.addEventListener('click', () => onGrpClick(gi));
+
+                    grp.forEach((t, i) => {
+                        if (i < 4) {
+                            const el = document.createElement('div'); el.className = 'tile board ' + tCls(t); el.innerHTML=`<span class="tv">${tLabel(t)}</span><span class="tc">${tSub(t)}</span>`;
+                            row.children[i].innerHTML = '';
+                            row.children[i].appendChild(el);
+                        }
+                    });
+                }
+            } else { 
+                if (sIdx < 12) {
+                    const row = seriesRows[sIdx++];
+                    row.dataset.gi = gi;
+                    row.classList.add('open-group-row');
+                    if(canAct) row.addEventListener('click', () => onGrpClick(gi));
+
+                    let firstNormIdx = grp.findIndex(t => !isOkey(t));
+                    let startVal = grp[firstNormIdx].n - firstNormIdx;
+                    let expected = startVal;
+                    
+                    for (let i = 0; i < grp.length; i++) {
+                        let val = expected;
+                        while (val < 1) val += 13;
+                        while (val > 13) val -= 13;
+
+                        let t = grp[i];
+                        const el = document.createElement('div'); el.className = 'tile board ' + tCls(t); el.innerHTML=`<span class="tv">${tLabel(t)}</span><span class="tc">${tSub(t)}</span>`;
+                        
+                        const slotIdx = val - 1; 
+                        if (slotIdx >= 0 && slotIdx < 13) {
+                            row.children[slotIdx].innerHTML = '';
+                            row.children[slotIdx].appendChild(el);
+                        }
+                        expected++;
+                    }
+                }
+            }
+        }
+    });
+}
+
+function isValidGroup(tiles){
+  if(tiles.length<3 || tiles.length>8) return false; 
+  const norms=tiles.filter(t=>!isOkey(t)); if(!norms.length) return tiles.length<=4; 
+  const nums=new Set(norms.map(t=>t.n)), cols=norms.map(t=>t.c), uniqueCols=new Set(cols);
+  if(nums.size===1 && uniqueCols.size===cols.length && tiles.length<=4) return true;
+  const cs=new Set(norms.map(t=>t.c));
+  if(cs.size===1){ let firstNormIdx = tiles.findIndex(t=>!isOkey(t)), startVal = tiles[firstNormIdx].n - firstNormIdx; if (startVal < 1) return false; 
+    let expected = startVal; for(let i=0; i<tiles.length; i++) { let t = tiles[i]; if (!isOkey(t)) { let val = t.n; if (expected === 14 && val === 1) val = 14; if (val !== expected) return false; } expected++; if (expected > 15) return false; } return true; 
+  } return false;
+}
+
+function calcGroupPts(grp){
+  const norms=grp.filter(t=>!isOkey(t)); if(!norms.length)return 0; const cs=new Set(norms.map(t=>t.c));
+  if(cs.size===1 && norms.length >= 1){ let firstNormIdx = grp.findIndex(t=>!isOkey(t)), currentVal = grp[firstNormIdx].n - firstNormIdx, sum = 0;
+    for(let i=0; i<grp.length; i++) { let valToAdd = currentVal; if (valToAdd === 14) valToAdd = 1; sum += valToAdd; currentVal++; } return sum;
+  } else { return norms[0].n * grp.length; }
+}
+
+function canAddToGroup(grp,tile,pos){
+  if (grp.length === 2) return false; const testGrp=pos==='start'?[tile,...grp]:[...grp,tile];
+  if(testGrp.length > 8) return false; return isValidGroup(testGrp);
+}
+
+function getOkeySwapIndex(grp, tile) {
+  if(isOkey(tile)) return -1; const norms = grp.filter(t => !isOkey(t)); if(norms.length === 0) return -1;
+  if (grp.length === 2) { const norm = norms[0]; if (norm && tile.c === norm.c && tile.n === norm.n) { return grp.findIndex(t => isOkey(t)); } return -1; }
+  for(let i=0; i<grp.length; i++) { if(isOkey(grp[i])) { const testGrp = [...grp]; testGrp[i] = tile; if (isValidGroup(testGrp)) return i; } } return -1;
+}
+
+function doOkeySwap(gi, swapIdx, tile) {
+  if (G.acildi[0] === 'cift' && G.islenenBuTur >= 2) { setMsg('Çift açanlar bir elde en fazla 2 taş işleyebilir!'); return; }
+  const grp = G.tableGroups[gi], okeyTile = grp[swapIdx]; 
+  for(let r=0; r<2; r++) { for(let s=0; s<NSLOTS; s++) { if(G.grid[r][s]?.id === tile.id) { G.grid[r][s] = null; break; } } }
+  grp[swapIdx] = tile; const [er, es] = firstEmpty(); if (er >= 0) G.grid[er][es] = okeyTile;
+  if (G.acildi[0] === 'cift') G.islenenBuTur++; G.sel = null; addExtraTime(); renderAll(); renderTable(); updBtns(); setMsg('⭐ Okeyi takıma geri aldın!'); checkElBitti();
+}
+
+function onGrpClick(gi){
+  if(G.turn!==0||G.phase!=='discard')return; if(!G.acildi[0]){setMsg('Önce elini açman gerekiyor!');return;} if(!G.sel){setMsg('Önce taşı seç, sonra gruba tıkla.');return;}
+  const tile=getHand().find(t=>t.id===G.sel); if(!tile)return; const grp=G.tableGroups[gi];
+  const swapIdx = getOkeySwapIndex(grp, tile); if (swapIdx !== -1) { doOkeySwap(gi, swapIdx, tile); return; }
+  if(canAddToGroup(grp,tile,'end')){doEklePos(gi,'end');return;} if(canAddToGroup(grp,tile,'start')){doEklePos(gi,'start');return;} setMsg(grp.length >= 8 ? 'Bir grup en fazla 8 taştan oluşabilir!' : 'Bu taş bu gruba eklenemiyor!');
+}
+
+function doEklePos(gi,pos){
+  if(G.turn!==0||G.phase!=='discard'||!G.acildi[0])return; if(!G.sel){setMsg('Önce taşı seç.');return;}
+  if (G.acildi[0] === 'cift' && G.islenenBuTur >= 2) { setMsg('Çift açanlar bir elde en fazla 2 taş işleyebilir!'); return; }
+  const hand=getHand(), tile=hand.find(t=>t.id===G.sel); if(!tile)return; const grp=G.tableGroups[gi];
+  if(!canAddToGroup(grp,tile,pos)){ setMsg(grp.length >= 8 ? 'Bir grup en fazla 8 taştan oluşabilir!' : 'Eklenemiyor!'); return; }
+  doEklePosInternal(gi, pos, tile); if (G.acildi[0] === 'cift') G.islenenBuTur++; G.sel=null; addExtraTime(); renderAll();renderTable();updBtns(); setMsg(tLong(tile)+' gruba işlendi!'); checkElBitti();
+}
+
+function doEklePosInternal(gi, pos, tile) {
+  for(let r=0;r<2;r++)for(let s=0;s<NSLOTS;s++){if(G.grid[r][s]?.id===tile.id){G.grid[r][s]=null;break;}}
+  if(pos==='start') G.tableGroups[gi].unshift(tile); else G.tableGroups[gi].push(tile);
+}
+
+function doOtoIsle() {
+  if(G.turn!==0 || G.phase!=='discard' || !G.acildi[0]) return;
+  if (G.acildi[0] === 'cift' && G.islenenBuTur >= 2) { setMsg('Çift açanlar bir elde en fazla 2 taş işleyebilir!'); return; }
+  let islendi = false, addedCount = 0, swappedCount = 0, newGroupCount = 0;
+  do { islendi = false; const hand = getHand();
+    for (let i = 0; i < hand.length; i++) { const tile = hand[i];
+      for (let gi = 0; gi < G.tableGroups.length; gi++) { const grp = G.tableGroups[gi];
+        const swapIdx = getOkeySwapIndex(grp, tile);
+        if (swapIdx !== -1) { const okeyTile = grp[swapIdx]; for(let r=0;r<2;r++)for(let s=0;s<NSLOTS;s++){if(G.grid[r][s]?.id===tile.id){G.grid[r][s]=null;break;}} grp[swapIdx] = tile; const [er, es] = firstEmpty(); if (er >= 0) G.grid[er][es] = okeyTile; islendi = true; swappedCount++; break; }
+        if (canAddToGroup(grp, tile, 'end')) { doEklePosInternal(gi, 'end', tile); islendi = true; addedCount++; break; }
+        if (canAddToGroup(grp, tile, 'start')) { doEklePosInternal(gi, 'start', tile); islendi = true; addedCount++; break; }
+      }
+      if (islendi) { if (G.acildi[0] === 'cift') { G.islenenBuTur++; if (G.islenenBuTur >= 2) break; } break; }
+    }
+  } while(islendi && !(G.acildi[0] === 'cift' && G.islenenBuTur >= 2));
+
+  const remainingHand = getHand();
+  if (G.acildi.includes('cift')) { const newPairs = findPairGroups(remainingHand); if (newPairs && newPairs.length > 0) { for(let p of newPairs) { if (G.acildi[0] === 'cift' && G.islenenBuTur >= 2) break; p.forEach(t=>{ for(let r=0;r<2;r++)for(let s=0;s<NSLOTS;s++){if(G.grid[r][s]?.id===t.id)G.grid[r][s]=null;} }); G.tableGroups.push(p); newGroupCount++; if (G.acildi[0] === 'cift') G.islenenBuTur++; } } } 
+  if (G.acildi[0] === 'seri') { const newGroups = findOptimalGroups(remainingHand); if (newGroups && newGroups.length > 0) { newGroups.forEach(g => { g.tiles.forEach(t=>{ for(let r=0;r<2;r++)for(let s=0;s<NSLOTS;s++){if(G.grid[r][s]?.id===t.id)G.grid[r][s]=null;} }); G.tableGroups.push(g.tiles); newGroupCount++; }); } }
+  if (addedCount > 0 || swappedCount > 0 || newGroupCount > 0) { G.sel = null; addExtraTime(); renderAll(); renderTable(); updBtns(); checkElBitti(); let msgStr = '✓ İşlem başarılı: '; if(addedCount > 0) msgStr += `${addedCount} taş eklendi. `; if(newGroupCount > 0) msgStr += `${newGroupCount} yeni grup açıldı. `; if(swappedCount > 0) msgStr += `${swappedCount} okey alındı.`; setMsg(msgStr.trim()); } else { setMsg('Şu an masaya işlenecek taşın veya açılacak yepyeni bir grubun yok.'); }
+}
+
+function updScores(){ 
+  for(let i=0;i<4;i++){ 
+    if(G.isEsli) G.scores[i] = G.teamScores[(i===0||i===2)?0:1]; 
+    const scEl = document.getElementById('sc-v'+i);
+    const sEl = document.getElementById('s'+i);
+    if(scEl) scEl.textContent = G.scores[i]; 
+    if(sEl) sEl.textContent = G.scores[i] + ' Puan';
+  } 
+}
+
+function drawDeck(){
+  if(G.turn!==0||G.phase!=='draw')return; if(!G.deck.length){setMsg('Deste bitti! El berabere.');endEl(-1);return;}
+  const t=G.deck.pop(), isGosterge=G.gosterge&&t.id===G.gosterge.id; const[r,s]=firstEmpty();if(r<0)return;
+  G.grid[r][s]=t;G.phase='discard';G.islenenBuTur=0;renderAll(); setMsg(isGosterge?'⭐ Gösterge taşını çektin!':'Çektin: '+tLong(t)); updBtns();
+}
+
+function doDiscard(id){
+  if(G.turn!==0||G.phase!=='discard')return false;
+  if(G.mustOpenThisTurn && !G.acildi[0]) { applyPenalty(0, 81, 'Aç veya Çifte Git! (+81 Ceza)'); setMsg('Yandan taş aldın! Ya elini AÇMALISIN ya da ÇİFTE GİT butonuna basmalısın.'); return false; }
+  if(G.mustUseTile) { const stillInHand = getHand().some(t => t.id === G.mustUseTile); if(stillInHand) { applyPenalty(0, 81, 'Aldığın taşı işle! +81 Ceza'); setMsg('Yandan aldığınız taşı henüz kullanmadınız! İşlemeden veya açmadan taş atamazsınız.'); return false; } else { G.mustUseTile = null; } }
+
+  const t = getHand().find(tile => tile.id === id); if (!t) return false;
+  let isOkeyTile = isOkey(t), isIsler = canAddTileToAnyGroup(t);
+  
+  if(isOkeyTile) { applyPenalty(0, 81, '⚠ Okey Attın! +81 Ceza'); setMsg('⚠ Okey attın! +81 Puan ceza.'); } 
+  else if (isIsler) { applyPenalty(0, 81, '⚠ İşler Taş Attın! +81 Ceza'); setMsg('⚠ İşler taş attınız! +81 Puan ceza.'); }
+
+  for(let r=0;r<2;r++)for(let s=0;s<NSLOTS;s++){
+    if(G.grid[r][s]?.id===id){
+      G.grid[r][s]=null; G.playerDisc.push(t); G.sel=null;G.phase='draw'; renderAll();
+      if (!isOkeyTile && !isIsler) setMsg('Attın: '+tLong(t)); updBtns();
+      if(G.acildi[0]){ const remaining=getHand(); if(remaining.length===0){ G.eldenBiten = !G.turnStartedOpen; G.okeyBiten = isOkeyTile; endEl(0); return true; } }
+      nextTurn();return true;
+    }
+  }return false;
+}
+
+function discardSelected(){if(G.sel)doDiscard(G.sel);}
+
+function showAcPanel(){ if(G.turn!==0||G.phase!=='discard')return; acSelIds=[]; document.getElementById('ac-panel').style.display='block'; document.getElementById('ac-pts-min').textContent = G.acildi[0] ? '0 (Sınır yok)' : `(Min ${Math.max(G.acilisPuan, G.highestSeri+1)} sayı / ${Math.max(4, G.highestCift+1)} çift)`; document.getElementById('ac-ok-btn').disabled = false; renderRack();renderAcPanel(); setMsg('Açmak istediğin taşları seç'); }
+function hideAcPanel(){ acSelIds=[]; document.getElementById('ac-panel').style.display='none'; renderRack(); }
+
+function renderAcPanel(){
+  const hand=getHand(), selTiles=hand.filter(t=>acSelIds.includes(t.id)), div=document.getElementById('ac-sel-tiles'); div.innerHTML='';
+  selTiles.forEach(t=>{ const el=document.createElement('div');el.className='tile sm '+tCls(t); el.innerHTML=`<span class="tv">${tLabel(t)}</span><span class="tc">${tSub(t)}</span>`; div.appendChild(el); });
+  let pts=0, validGroups=false, validPairs=false; const pairs=findPairGroups(selTiles); let valid = false;
+  const minSeri = Math.max(G.acilisPuan, G.highestSeri + 1);
+  const minCift = Math.max(4, G.highestCift + 1);
+
+  if (G.acildi[0]) {
+      const isCift=G.acildi.includes('cift');
+      if (G.acildi[0]==='cift') { valid=pairs.length>0&&selTiles.length===pairs.length*2; pts=selTiles.filter(t=>!isOkey(t)).reduce((s,t)=>s+t.n,0); document.getElementById('ac-status').textContent=valid?'✓ Geçerli Çift':'Geçersiz Çift'; } 
+      else { const groups=findGroups(selTiles); valid=(groups!==null&&groups.length>0); pts=groups?groups.reduce((s,g)=>s+calcGroupPts(g),0):selTiles.filter(t=>!isOkey(t)).reduce((s,t)=>s+t.n,0);
+          if(!valid&&isCift&&pairs.length>0&&selTiles.length===pairs.length*2){ valid=true;pts=selTiles.filter(t=>!isOkey(t)).reduce((s,t)=>s+t.n,0); document.getElementById('ac-status').textContent='✓ Geçerli Çift İşleme'; } else { document.getElementById('ac-status').textContent=valid?'✓ Geçerli Grup':'Geçersiz Grup'; }
+      }
+  } else {
+      if(pairs.length>=minCift&&selTiles.length===pairs.length*2){ validPairs=true; pts=selTiles.filter(t=>!isOkey(t)).reduce((s,t)=>s+t.n,0); } 
+      else { const groups=findGroups(selTiles); if(groups) { pts=groups.reduce((s,g)=>s+calcGroupPts(g),0); validGroups=pts>=minSeri; } else { pts=selTiles.filter(t=>!isOkey(t)).reduce((s,t)=>s+t.n,0); } }
+      valid=validGroups||validPairs; document.getElementById('ac-status').textContent=validPairs?`✓ ${pairs.length} çift!`:(validGroups?'✓ Geçerli':(pairs.length>0?`${pairs.length}/${minCift} çift`:`Geçersiz (Min ${minSeri} sayı)`));
+  }
+  document.getElementById('ac-pts-val').textContent=pts; document.getElementById('ac-status').style.color=valid?'#88ff88':'#ff8888'; 
+}
+
+function doAc(){
+  const hand=getHand(), selTiles=hand.filter(t=>acSelIds.includes(t.id)); if (selTiles.length === 0) return;
+  if(G.mustUseTile && !acSelIds.includes(G.mustUseTile)) { setMsg('Yandan aldığınız taşı açtığınız grupta kullanmalısınız!'); return; }
+
+  const minSeri = Math.max(G.acilisPuan, G.highestSeri + 1);
+  const minCift = Math.max(4, G.highestCift + 1);
+  const isFinish = (hand.length - selTiles.length) <= 1, groups = findGroups(selTiles), pairs = findPairGroups(selTiles), isPairOnly = pairs.length > 0 && selTiles.length === pairs.length * 2, isGroupsValid = groups !== null && groups.length > 0, pts = groups ? groups.reduce((s,g)=>s+calcGroupPts(g),0) : 0;
+
+  if (G.cifteGidiyor[0] && !G.acildi[0] && !isPairOnly) { applyPenalty(0, 81, 'Hatalı Açılış! +81 Ceza'); setMsg('Çifte gitme modu aktifken seri açılamaz! Sadece çift açabilirsin. +81 Puan.'); hideAcPanel(); return; }
+
+  if (G.acildi[0]) {
+      if (G.acildi[0] === 'cift' && !isPairOnly) { applyPenalty(0, 81, 'Hatalı Açılış! +81 Ceza'); setMsg('Hatalı Açılış! Çift açan seri açamaz! +81 Puan.'); hideAcPanel(); return; }
+      if (isPairOnly && !G.acildi.includes('cift')) { applyPenalty(0, 81, 'Hatalı Açılış! +81 Ceza'); setMsg('Hatalı Açılış! Oyunda çift açan yoksa çift işlenemez! +81 Puan.'); hideAcPanel(); return; }
+      if (!isPairOnly && !isGroupsValid) { applyPenalty(0, 81, 'Hatalı Açılış! +81 Ceza'); setMsg('Hatalı Açılış! Geçersiz dizilim. +81 Puan.'); hideAcPanel(); return; }
+      selTiles.forEach(t=>{for(let r=0;r<2;r++)for(let s=0;s<NSLOTS;s++){if(G.grid[r][s]?.id===t.id)G.grid[r][s]=null;}});
+      if (isPairOnly) pairs.forEach(p=>G.tableGroups.push(p)); else groups.forEach(grp=>G.tableGroups.push(grp));
+      acSelIds=[]; hideAcPanel(); addExtraTime(); renderAll(); renderTable(); updBtns(); setMsg('✓ Yeni taşlar masaya açıldı!'); checkElBitti(); return;
+  }
+
+  if (isPairOnly) {
+      if (pairs.length >= minCift || isFinish) { 
+          const isFirstOpen = !G.acildi[0];
+          if(isFirstOpen) { G.preOpenState = cloneState(); G.preOpenState.highestSeri = G.highestSeri; G.preOpenState.highestCift = G.highestCift; G.preOpenState.scores = [...G.scores]; G.preOpenState.teamScores = [...G.teamScores]; G.preOpenState.roundBonus = [...G.roundBonus]; } 
+          selTiles.forEach(t=>{for(let r=0;r<2;r++)for(let s=0;s<NSLOTS;s++){if(G.grid[r][s]?.id===t.id)G.grid[r][s]=null;}}); pairs.forEach(p=>G.tableGroups.push(p)); G.acildi[0] = 'cift'; acSelIds=[]; G.mustUseTile = null; G.mustOpenThisTurn = false; 
+          if(pairs.length > G.highestCift) G.highestCift = pairs.length; G.acilisDegeri[0] = pairs.length + " çiftle açtı";
+          if(isFirstOpen) checkAndApplyBonus(0, 'cift', pairs.length);
+          hideAcPanel(); addExtraTime(); renderAll(); renderTable(); updBtns(); updAcilisStatus(); setMsg('✓ ' + pairs.length + ' çift ile açıldın!'); checkElBitti(); return; 
+      } 
+      else { applyPenalty(0, 81, 'Hatalı Açılış! +81 Ceza'); setMsg(`Hatalı Açılış: En az ${minCift} çift gerekli! +81 Puan.`); hideAcPanel(); return; }
+  } else {
+      if (isGroupsValid && (pts >= minSeri || isFinish)) { 
+          const isFirstOpen = !G.acildi[0];
+          if(isFirstOpen) { G.preOpenState = cloneState(); G.preOpenState.highestSeri = G.highestSeri; G.preOpenState.highestCift = G.highestCift; G.preOpenState.scores = [...G.scores]; G.preOpenState.teamScores = [...G.teamScores]; G.preOpenState.roundBonus = [...G.roundBonus]; } 
+          selTiles.forEach(t=>{for(let r=0;r<2;r++)for(let s=0;s<NSLOTS;s++){if(G.grid[r][s]?.id===t.id)G.grid[r][s]=null;}}); groups.forEach(grp=>G.tableGroups.push(grp)); G.acildi[0] = 'seri'; acSelIds=[]; G.mustUseTile = null; G.mustOpenThisTurn = false; 
+          if(pts > G.highestSeri) G.highestSeri = pts; G.acilisDegeri[0] = pts + " ile açtı";
+          if(isFirstOpen) checkAndApplyBonus(0, 'seri', pts);
+          hideAcPanel(); addExtraTime(); renderAll(); renderTable(); updBtns(); updAcilisStatus(); setMsg('Açıldın! '+pts+'p.'); checkElBitti(); return; 
+      } 
+      else { applyPenalty(0, 81, 'Hatalı Açılış! +81 Ceza'); setMsg(`Hatalı Açılış: En az ${minSeri} sayı gerekli! +81 Puan.`); hideAcPanel(); return; }
+  }
+}
+
+function findGroups(tiles){
+  if(!tiles.length)return[]; if(isValidGroup(tiles))return[tiles]; const result=[], remaining=[...tiles];
+  while(remaining.length>=3){ let found=false; for(let sz=remaining.length;sz>=3;sz--){ const combos=getCombinations(remaining,sz); for(const combo of combos){ if(isValidGroup(combo)){ result.push(combo); combo.forEach(t=>{const i=remaining.findIndex(x=>x.id===t.id);if(i>=0)remaining.splice(i,1);}); found=true;break; } } if(found)break; } if(!found)break; }
+  if(remaining.length>0)return null; return result;
+}
+
+function findPairGroups(hand){
+  const okeyler=hand.filter(t=>isOkey(t)), normal=hand.filter(t=>!isOkey(t)), pairs=[], usedIds=new Set();
+  for(let i=0;i<normal.length;i++){ if(usedIds.has(normal[i].id))continue; for(let j=i+1;j<normal.length;j++){ if(usedIds.has(normal[j].id))continue; if(normal[i].c===normal[j].c&&normal[i].n===normal[j].n){ pairs.push([normal[i],normal[j]]); usedIds.add(normal[i].id);usedIds.add(normal[j].id); break; } } }
+  const kalanNormal = normal.filter(t => !usedIds.has(t.id)).sort((a,b) => b.n - a.n); let okIdx = 0;
+  for(let i=0;i<kalanNormal.length;i++){ if(okIdx < okeyler.length) { pairs.push([kalanNormal[i], okeyler[okIdx]]); usedIds.add(kalanNormal[i].id); okIdx++; } }
+  while(okIdx + 1 < okeyler.length) { pairs.push([okeyler[okIdx], okeyler[okIdx+1]]); okIdx += 2; }
+  return pairs;
+}
+
+function getCombinations(arr,k){
+  if(k===arr.length)return[arr]; if(k===1)return arr.map(x=>[x]); const result=[];
+  for(let i=0;i<=arr.length-k;i++){ const rest=getCombinations(arr.slice(i+1),k-1); rest.forEach(c=>result.push([arr[i],...c])); } return result;
+}
+
+function checkElBitti(){ const hand=getHand(); if(hand.length===0&&G.acildi[0]) endEl(0); }
+
+function endEl(winner){
+  if(turnTimer) clearInterval(turnTimer); const berabere=winner===-1, eldenBiten = winner >= 0 && !G.turnStartedOpen;
+
+  let condCount = 0;
+  if (winner >= 0) {
+      if (G.okeyBiten) condCount++;
+      if (G.acildi[winner] === 'cift' || G.cifteGidiyor[winner]) condCount++;
+      if (eldenBiten) condCount++;
+  }
+  
+  let mult = 1;
+  if (condCount === 1) mult = 2;
+  else if (condCount === 2) mult = 4;
+  else if (condCount === 3) mult = 6;
+
+  const roundPuan = [0,0,0,0];
+  const durumStrings = ['','','',''];
+
+  for(let p=0;p<4;p++){
+    if(!berabere && p===winner){
+        roundPuan[p] = condCount > 0 ? -200 : -100;
+        durumStrings[p] = eldenBiten ? '🏆 Elden Bitti' : (G.okeyBiten ? '🏆 Okey Bitti' : '🏆 Bitti');
+        continue;
+    }
+    if(!berabere && G.isEsli && p===(winner+2)%4){
+        roundPuan[p] = 0;
+        durumStrings[p] = 'Ortak yırttı';
+        continue;
+    }
+    
+    const hand=p===0?getHand():G.opp[p-1];
+    let pCeza = 0;
+
+    if(!G.acildi[p]){ 
+        pCeza = G.cifteGidiyor[p] ? 200 : 100; 
+        durumStrings[p] = G.cifteGidiyor[p] ? 'Çifte, Açamadı' : 'Açamadı';
+    } else { 
+        const handVals = hand.map(t=>tVal(t)); let sum = handVals.reduce((a,b)=>a+b, 0); 
+        if (G.acildi[p] === 'cift' || G.cifteGidiyor[p]) sum *= 2; 
+        pCeza = sum; 
+        if (hand.some(t => isOkey(t))) pCeza += 100; 
+        durumStrings[p] = `${hand.length} taş (${handVals.reduce((a,b)=>a+b,0)} sayı)`;
+    }
+    
+    roundPuan[p] = pCeza * mult;
+  }
+
+  if(berabere) {
+      for(let p=0; p<4; p++) {
+          if(!G.acildi[p]) durumStrings[p] = G.cifteGidiyor[p] ? 'Çifte, Açamadı' : 'Açamadı';
+          else {
+             const hand = p===0 ? getHand() : G.opp[p-1];
+             durumStrings[p] = `${hand.length} taş (${hand.reduce((a,b)=>a+tVal(b), 0)} sayı)`;
+          }
+      }
+  }
+
+  const totalElScore = roundPuan.map((pts, i) => pts + G.roundBonus[i] + G.roundPenalties[i]);
+
+  G.history.push({
+      el: G.curEl,
+      puan: [...roundPuan],
+      kafa: [...G.roundBonus],
+      cezalar: [...G.roundPenalties],
+      toplam: totalElScore,
+      durum: [...durumStrings],
+      mult: mult,
+      winner: winner
+  });
+  
+  for(let p=0;p<4;p++) {
+      if(G.isEsli) {
+          const tIdx = (p===0||p===2)?0:1;
+          G.teamScores[tIdx] += roundPuan[p];
+      } else {
+          G.scores[p] += roundPuan[p]; 
+      }
+  }
+  if(G.isEsli) { G.scores[0] = G.scores[2] = G.teamScores[0]; G.scores[1] = G.scores[3] = G.teamScores[1]; }
+  
+  showSkorModal();
+}
+
+function showSkorModal(){
+  const modal = document.getElementById('skor-modal');
+  const card = document.getElementById('skor-modal-content');
+  
+  let html = `<h2>Genel Toplam Puan Durumu</h2>`;
+  
+  html += `<div style="overflow-x:auto;"><table class="skor-table" style="margin-bottom:20px;">`;
+  if (G.isEsli) {
+      html += `<tr><th>Takım Bilgisi</th><th>Toplam Puan</th></tr>`;
+      html += `<tr><td>Bizim Takım (${G.names[0]} & ${G.names[2]})</td><td><b style="font-size:14px;color:${G.teamScores[0]<0?'#88ff88':(G.teamScores[0]>0?'#ff8888':'#fff')}">${G.teamScores[0]}</b></td></tr>`;
+      html += `<tr><td>Rakip Takım (${G.names[1]} & ${G.names[3]})</td><td><b style="font-size:14px;color:${G.teamScores[1]<0?'#88ff88':(G.teamScores[1]>0?'#ff8888':'#fff')}">${G.teamScores[1]}</b></td></tr>`;
+  } else {
+      html += `<tr><th>Oyuncular</th><th>Toplam Puan</th></tr>`;
+      for(let p=0; p<4; p++) {
+          html += `<tr><td>${G.names[p]}</td><td><b style="font-size:14px;color:${G.scores[p]<0?'#88ff88':(G.scores[p]>0?'#ff8888':'#fff')}">${G.scores[p]}</b></td></tr>`;
+      }
+  }
+  html += `</table></div>`;
+  
+  html += `<div style="max-height: 40vh; overflow-y: auto; border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 10px; background: rgba(0,0,0,.2); scrollbar-width:thin;">`;
+  
+  G.history.forEach((h) => {
+      html += `<div style="margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,.1); padding-bottom: 10px;">`;
+      html += `<div style="text-align:center; font-weight:bold; color:#e8c84a; margin-bottom: 8px; background:rgba(0,0,0,.4); padding:4px; border-radius:4px;">${h.el}. EL SONU — DETAYLI PUANLAR</div>`;
+      
+      html += `<div style="overflow-x:auto;"><table class="skor-table" style="margin-bottom: 5px;">`;
+      html += `<tr><th style="text-align:left;">Oyuncular</th><th>Durum</th><th>Puan</th><th>Kafa</th><th>Cezalar</th><th>Toplam</th></tr>`;
+      
+      for (let p=0; p<4; p++) {
+          const formatPts = (v) => v === 0 ? `<span style="color:#aaa">0</span>` : (v < 0 ? `<span class="bonus">${v}</span>` : `<span class="ceza">+${v}</span>`);
+          html += `<tr>`;
+          html += `<td style="text-align:left;">${G.names[p]}</td>`;
+          html += `<td>${h.durum[p]}</td>`;
+          html += `<td>${formatPts(h.puan[p])}</td>`;
+          html += `<td>${formatPts(h.kafa[p])}</td>`;
+          html += `<td>${formatPts(h.cezalar[p])}</td>`;
+          html += `<td><b>${formatPts(h.toplam[p])}</b></td>`;
+          html += `</tr>`;
+      }
+      html += `</table></div>`;
+      
+      if (h.winner === -1) html += `<div style="color:#ffcc44;text-align:center;font-size:10px;">Deste bitti — Herkes kalan sayısına göre ceza yedi.</div>`;
+      else if (h.mult > 1) html += `<div style="color:#ffaa44;text-align:center;font-size:10px;">⚡ ${G.names[h.winner]} katlamalı (${h.mult}x) ceza kesti!</div>`;
+      
+      html += `</div>`;
+  });
+  
+  html += `</div>`; 
+  html += `<button class="devam-btn" onclick="nextEl()">Devam →</button>`;
+  
+  card.innerHTML = html;
+  modal.classList.add('show');
+}
+
+function nextEl(){
+  document.getElementById('skor-modal').classList.remove('show');
+  if(G.curEl>=G.totalEl){ 
+      let txt='', winText='', icon='';
+      if(G.isEsli) {
+          const weWin = G.teamScores[0] <= G.teamScores[1], draw = G.teamScores[0] === G.teamScores[1];
+          icon = draw ? '🤝' : (weWin ? '🏆' : '😢'); winText = draw ? 'Berabere!' : (weWin ? 'Takımınız Kazandı!' : 'Rakip Takım Kazandı!');
+          txt = `Bizim Takım: ${G.teamScores[0]} Puan\nRakip Takım: ${G.teamScores[1]} Puan`;
+      } else {
+          const sorted=[...G.scores.map((s,i)=>({s,i}))].sort((a,b)=>a.s-b.s), winner=sorted[0];
+          icon=winner.i===0?'🏆':'😢'; winText=winner.i===0?'Kazandın!':G.names[winner.i]+' Kazandı!'; txt=G.scores.map((s,i)=>G.names[i]+': '+s+' Puan').join('\n');
+      }
+      document.getElementById('end-icon').textContent=icon;
+      document.getElementById('end-title').textContent=winText;
+      document.getElementById('end-text').textContent='Tüm eller tamamlandı.';
+      if(document.getElementById('end-scores')) {
+        window._lastScores = [...G.scores];
+        document.getElementById('end-scores').innerHTML = G.scores.map((s,i)=>{
+          const isMe=i===0, isWin=s===Math.min(...G.scores);
+          return '<div style="display:flex;justify-content:space-between;padding:2px 0;'+(isMe?'color:#e8c84a;font-weight:700;':'')+(isWin?'color:#88ff88;':'')+'"><span>'+(isWin?'🏆 ':'')+G.names[i]+(isMe?' (Sen)':'')+'</span><span>'+s+' Puan</span></div>';
+        }).join('');
+      }
+      document.getElementById('end-wrap').classList.add('show');
+      saveGameStats();
+      return; 
+  }
+  G.curEl++; deal();
+}
+
+function calcRackScore(){
+  if(!G.okey)return{groups:[],total:0,pairs:[],validIds:new Set()}; const validGroups=[];
+  for(let r=0;r<2;r++){ let run=[]; for(let s=0;s<NSLOTS;s++){ const t=G.grid[r][s]; if(t){ run.push(t); } else { if(run.length>=3 && isValidGroup(run)) validGroups.push([...run]); run=[]; } } if(run.length>=3 && isValidGroup(run)) validGroups.push([...run]); }
+  let total=0; const detailParts=[], validIds=new Set();
+  for(const grp of validGroups){ grp.forEach(t=>validIds.add(t.id)); const gPts=calcGroupPts(grp); total+=gPts; const norms=grp.filter(t=>!isOkey(t)), cs=new Set(norms.map(t=>t.c)), type=(cs.size===1&&norms.length>0)||norms.length===0?'Seri':'Per'; detailParts.push(type+' '+gPts+'p'); }
+  const pairs=findPairGroups(getHand()), pairInfo=pairs.length>=Math.max(4, G.highestCift + 1)?` | ${pairs.length} çift ✓`:(pairs.length>0?` | ${pairs.length} çift`:'');
+  const minSeri = Math.max(G.acilisPuan || 81, G.highestSeri + 1);
+  const minCift = Math.max(4, G.highestCift + 1);
+  document.getElementById('rack-score').textContent=total>0?(total+'p'):'—'; document.getElementById('rack-score').style.color=(total>=minSeri||pairs.length>=minCift)?'#88ff88':'#e8c84a'; document.getElementById('rack-score-detail').textContent=detailParts.join(' | ')+pairInfo;
+  return{groups:validGroups.map(g=>({tiles:g,type:'auto'})),total,pairs,validIds};
+}
+
+function doSort(mode){
+  sortMode=mode; document.getElementById('btn-diz').classList.toggle('on',mode==='diz'); document.getElementById('btn-cift').classList.toggle('on',mode==='cift');
+  const hand=getHand();if(!hand.length)return; const sorted=mode==='cift'?smartSortCift(hand):smartSortDiz(hand); G.grid=emptyGrid();
+  sorted.forEach((t,i)=>{if(i>=NSLOTS*2)return; const r=i<NSLOTS?0:1,s=i<NSLOTS?i:i-NSLOTS; G.grid[r][s]=t;}); renderRack();calcRackScore(); setMsg(mode==='cift'?'Çiftler dizildi.':'Taşlar seri/per dizildi.');
+}
+
+function smartSortDiz(hand){
+  const okeyler=hand.filter(t=>isOkey(t)), normal=hand.filter(t=>!isOkey(t)), groups=findOptimalGroups(hand);
+  const usedIds=new Set(groups.flatMap(g=>g.tiles).filter(t=>!isOkey(t)).map(t=>t.id)), usedOkeyTiles=groups.flatMap(g=>g.tiles).filter(t=>isOkey(t));
+  const leftover=normal.filter(t=>!usedIds.has(t.id)), freeOkeys=okeyler.filter(o=>!usedOkeyTiles.some(u=>u.id===o.id)); const result=[]; groups.forEach((g,i)=>{result.push(...g.tiles);if(i<groups.length-1)result.push(null);}); if(groups.length&&leftover.length)result.push(null); result.push(...leftover,...freeOkeys); return result;
+}
+
+function smartSortCift(hand){
+  const okeyler=hand.filter(t=>isOkey(t)), normal=hand.filter(t=>!isOkey(t)), pairs=[]; const usedIds=new Set();
+  for(let i=0;i<normal.length;i++){ if(usedIds.has(normal[i].id))continue; for(let j=i+1;j<normal.length;j++){ if(usedIds.has(normal[j].id))continue; if(normal[i].c===normal[j].c&&normal[i].n===normal[j].n){ pairs.push([normal[i],normal[j]]); usedIds.add(normal[i].id);usedIds.add(normal[j].id);break; } } }
+  pairs.sort((a,b)=>b[0].n-a[0].n); const leftover=normal.filter(t=>!usedIds.has(t.id)).sort((a,b)=>a.n-b.n), result=[];
+  pairs.forEach((p,i)=>{result.push(...p);if(i<pairs.length-1)result.push(null);}); if(pairs.length&&leftover.length)result.push(null); result.push(...leftover,...okeyler); return result;
+}
+
+function doAutoAcSeri(){
+  if(G.turn!==0||G.phase!=='discard'||G.acildi[0])return; const {groups,total}=calcRackScore(); const allTiles=groups.flatMap(g=>g.tiles); 
+  if(G.mustUseTile && !allTiles.some(t => t.id === G.mustUseTile)) { setMsg('Yandan aldığınız taşı kullanarak açmalısınız. Lütfen el ile (Aç butonu) açınız.'); return; }
+  const remainingCount = getHand().length - allTiles.length, isFinish = remainingCount <= 1;
+  const minSeri = Math.max(G.acilisPuan, G.highestSeri + 1);
+  if(!groups.length||(total<minSeri && !isFinish)){ setMsg('⚠ Seri açmak için en az '+minSeri+'p gerekli.');return; }
+  const isFirstOpen = !G.acildi[0];
+  if(isFirstOpen) { G.preOpenState = cloneState(); G.preOpenState.highestSeri = G.highestSeri; G.preOpenState.highestCift = G.highestCift; G.preOpenState.scores = [...G.scores]; G.preOpenState.teamScores = [...G.teamScores]; G.preOpenState.roundBonus = [...G.roundBonus]; }
+  allTiles.forEach(t=>{for(let r=0;r<2;r++)for(let s=0;s<NSLOTS;s++){if(G.grid[r][s]?.id===t.id)G.grid[r][s]=null;}}); groups.forEach(g=>G.tableGroups.push(g.tiles)); 
+  G.acildi[0]='seri';acSelIds=[]; G.mustUseTile = null; G.mustOpenThisTurn = false; 
+  if(total > G.highestSeri) G.highestSeri = total; G.acilisDegeri[0] = total + " ile açtı";
+  if(isFirstOpen) checkAndApplyBonus(0, 'seri', total);
+  addExtraTime(); renderAll();renderTable();updBtns();updAcilisStatus(); setMsg('✓ Seri ile otomatik açıldın! '+total+'p.'); document.getElementById('geri-al-btn').style.display=''; checkElBitti();
+}
+
+function doAutoAcCift(){
+  if(G.turn!==0||G.phase!=='discard'||G.acildi[0])return; const {pairs}=calcRackScore(); const pairTiles=pairs.flat();
+  if(G.mustUseTile && !pairTiles.some(t => t.id === G.mustUseTile)) { setMsg('Yandan aldığınız taşı çiftinizde kullanmalısınız!'); return; }
+  const remainingCount = getHand().length - pairTiles.length, isFinish = remainingCount <= 1;
+  const minCift = Math.max(4, G.highestCift + 1);
+  if(pairs.length<minCift && !isFinish){ setMsg('⚠ Çifte açmak için en az '+minCift+' çift gerekli.');return; }
+  const isFirstOpen = !G.acildi[0];
+  if(isFirstOpen) { G.preOpenState = cloneState(); G.preOpenState.highestSeri = G.highestSeri; G.preOpenState.highestCift = G.highestCift; G.preOpenState.scores = [...G.scores]; G.preOpenState.teamScores = [...G.teamScores]; G.preOpenState.roundBonus = [...G.roundBonus]; }
+  pairTiles.forEach(t=>{for(let r=0;r<2;r++)for(let s=0;s<NSLOTS;s++){if(G.grid[r][s]?.id===t.id)G.grid[r][s]=null;}}); pairs.forEach(p=>G.tableGroups.push(p)); 
+  G.acildi[0]='cift';acSelIds=[]; G.mustUseTile = null; G.mustOpenThisTurn = false; 
+  if(pairs.length > G.highestCift) G.highestCift = pairs.length; G.acilisDegeri[0] = pairs.length + " çiftle açtı";
+  if(isFirstOpen) checkAndApplyBonus(0, 'cift', pairs.length);
+  addExtraTime(); renderAll();renderTable();updBtns();updAcilisStatus(); setMsg('✓ ' + pairs.length + ' çift ile otomatik açıldın!'); document.getElementById('geri-al-btn').style.display=''; checkElBitti();
+}
+
+function doGeriAl(){
+  if(!G.acildi[0] || G.turnStartedOpen || !G.preOpenState) return; if(!confirm('Açılışı geri almak +81 puan ekler. Emin misin?')) return;
+  G.grid = G.preOpenState.grid; G.tableGroups = G.preOpenState.tableGroups; G.acildi[0] = false; 
+  G.scores = [...G.preOpenState.scores]; G.teamScores = [...G.preOpenState.teamScores]; G.roundBonus = [...G.preOpenState.roundBonus];
+  applyPenalty(0, 81, 'Açılış Geri Alındı! +81 Ceza');
+  G.highestSeri = G.preOpenState.highestSeri; G.highestCift = G.preOpenState.highestCift; G.acilisDegeri[0] = null;
+  G.preOpenState = null; G.islenenBuTur = 0; document.getElementById('geri-al-btn').style.display='none'; renderAll();renderTable();updBtns();updAcilisStatus();updScores(); setMsg('Açılış geri alındı! (Varsa kafa bonusu silindi)');
+}
+
+function updBtns(){
+  const myTurn=G.turn===0,canAct=myTurn&&G.phase==='discard'; document.getElementById('disc-btn').disabled=!(canAct&&!!G.sel);
+  const btnCifte = document.getElementById('btn-cifte-git'); if (btnCifte) { if (G.acildi[0]) { btnCifte.style.display = 'none'; } else { btnCifte.style.display = ''; btnCifte.disabled = G.cifteGidiyor[0]; } }
+  const btnTasiBirak = document.getElementById('btn-tasi-birak'); if (btnTasiBirak) { if (canAct && G.mustUseTile) { const tileInHand = getHand().some(t => t.id === G.mustUseTile); if (tileInHand) { btnTasiBirak.style.display = ''; btnTasiBirak.disabled = false; } else { btnTasiBirak.style.display = 'none'; } } else { btnTasiBirak.style.display = 'none'; } }
+  if (G.acildi[0]) { document.getElementById('ac-btn').style.display=''; document.getElementById('ac-btn').disabled=!(canAct); document.getElementById('auto-ac-seri-btn').style.display='none'; document.getElementById('auto-ac-cift-btn').style.display='none'; document.getElementById('oto-isle-btn').style.display=''; document.getElementById('oto-isle-btn').disabled = !canAct; document.getElementById('geri-al-btn').style.display=(!G.turnStartedOpen) ? '' : 'none'; document.getElementById('geri-al-btn').disabled = !canAct; } 
+  else { document.getElementById('ac-btn').style.display=''; document.getElementById('ac-btn').disabled=!(canAct&&!G.acildi[0]); document.getElementById('auto-ac-seri-btn').style.display=''; document.getElementById('auto-ac-seri-btn').disabled=!(canAct&&!G.acildi[0]); document.getElementById('auto-ac-cift-btn').style.display=''; document.getElementById('auto-ac-cift-btn').disabled=!(canAct&&!G.acildi[0]); document.getElementById('oto-isle-btn').style.display='none'; document.getElementById('geri-al-btn').style.display='none'; }
+}
+
+function splitChain(tiles){
+  const n=tiles.length; if(n<=5)return[tiles]; if(n===6)return[tiles.slice(0,3),tiles.slice(3)]; if(n===7)return[tiles.slice(0,3),tiles.slice(3)]; if(n===8)return[tiles.slice(0,4),tiles.slice(4)];
+  const res=[];let i=0; while(i<n){const left=n-i;if(left<=5){res.push(tiles.slice(i));break;}else if(left===6){res.push(tiles.slice(i,i+3));i+=3;}else{res.push(tiles.slice(i,i+5));i+=5;}} return res;
+}
+
+function allSeriCandidates(normal, okeyler){
+  const res=[];
+  for(const c of COLS){ 
+    const byColorOrig=normal.filter(t=>t.c===c).sort((a,b)=>a.n-b.n),byColor=[],seen=new Set(); for(const t of byColorOrig){if(!seen.has(t.n)){seen.add(t.n);byColor.push(t);}}
+    for(let i=0;i<byColor.length;i++){
+      const chainInfo=[{tile:byColor[i],fakeN:byColor[i].n}]; let usedOk=0; let j=i+1;
+      while(j<byColor.length){ const lastN=chainInfo[chainInfo.length-1].fakeN, gap=byColor[j].n-lastN-1; if(gap===0){chainInfo.push({tile:byColor[j],fakeN:byColor[j].n});j++;} else if(gap>0&&usedOk+gap<=okeyler.length){ for(let k=0;k<gap;k++) chainInfo.push({tile:okeyler[usedOk+k],fakeN:lastN+k+1}); usedOk+=gap; chainInfo.push({tile:byColor[j],fakeN:byColor[j].n});j++; } else break; }
+      if(chainInfo.length>=3){ const tiles=chainInfo.map(x=>x.tile), pts=chainInfo.reduce((s,x)=>s+x.fakeN,0), ids=new Set(tiles.filter(t=>!isOkey(t)).map(t=>t.id)); res.push({tiles, okUsed:usedOk, pts, type:'seri', ids, chainInfo}); }
+    }
+  } return res;
+}
+
+function allPerCandidates(normal, okeyler){
+  const res=[];
+  for(let n=1;n<=13;n++){ const same=normal.filter(t=>t.n===n), uniq=[], seenC=new Set(); for(const t of same){if(!seenC.has(t.c)){seenC.add(t.c);uniq.push(t);}}
+    if(uniq.length>=3){ const pts=uniq.reduce((s,t)=>s+t.n,0); res.push({tiles:uniq, okUsed:0, pts, type:'per', ids:new Set(uniq.map(t=>t.id))}); } 
+    else if(uniq.length===2&&okeyler.length>=1){ const pts=uniq.reduce((s,t)=>s+t.n,0)+n; res.push({tiles:[...uniq,okeyler[0]], okUsed:1, pts, type:'per', ids:new Set(uniq.map(t=>t.id))}); }
+  } return res;
+}
+
+function findOptimalGroups(hand){
+  const okeyler=hand.filter(t=>isOkey(t)), normal=hand.filter(t=>!isOkey(t)), seriC=allSeriCandidates(normal, okeyler), perC=allPerCandidates(normal, okeyler), all=[...seriC,...perC].sort((a,b)=>b.pts-a.pts);
+  const usedNormalIds=new Set(), result=[]; let usedOkeys=0;
+  for(const cand of all){ const normalIds=[...cand.ids]; if(normalIds.some(id=>usedNormalIds.has(id)))continue; if(cand.okUsed>0&&usedOkeys+cand.okUsed>okeyler.length)continue;
+    normalIds.forEach(id=>usedNormalIds.add(id)); usedOkeys+=cand.okUsed; let tiles=cand.tiles; if(cand.okUsed>0&&cand.type==='seri'&&cand.chainInfo) tiles=cand.chainInfo.map(x=>x.tile);
+    if(cand.type==='seri') splitChain(tiles).forEach(g=>result.push({tiles:g,type:'seri'})); else result.push({tiles,type:'per'});
+  } return result;
+}
+
+function nextTurn(){
+  G.turn=(G.turn+1)%4; G.phase='draw'; G.turnStartedOpen=G.acildi[G.turn]; updTurn(); startTimer(); 
+  if(G.turn!==0){ setTimeout(botPlay,1200); } else { renderAll(); updBtns(); }
+}
+
+function botPlay(){
+  if(G.turn===0)return; const p=G.turn-1,hand=G.opp[p];
+  if(!G.deck.length){endEl(-1);return;} const drawn=G.deck.pop(); if(G.gosterge&&drawn.id===G.gosterge.id) setMsg(G.names[G.turn]+' gösterge taşı çekti!'); hand.push(drawn); 
+  if(!G.acildi[G.turn]){ 
+      const minSeri = Math.max(G.acilisPuan, G.highestSeri + 1);
+      const minCift = Math.max(4, G.highestCift + 1);
+      
+      if(!G.cifteGidiyor[G.turn]) {
+          const n=hand.filter(t=>!isOkey(t)), optimal=findOptimalGroups(n), totalPts = optimal ? optimal.reduce((acc,g)=>acc+calcGroupPts(g.tiles),0) : 0; 
+          if(totalPts>=minSeri) { 
+              G.acildi[G.turn]='seri'; 
+              if(totalPts > G.highestSeri) G.highestSeri = totalPts; G.acilisDegeri[G.turn] = totalPts + " ile açtı"; updAcilisStatus();
+              checkAndApplyBonus(G.turn, 'seri', totalPts);
+              optimal.forEach(g => { g.tiles.forEach(t => { const idx = hand.findIndex(x => x.id === t.id); if(idx !== -1) hand.splice(idx, 1); }); G.tableGroups.push(g.tiles); }); 
+          } 
+          else { 
+              const pairs=findPairGroups(hand); 
+              if (pairs.length >= minCift) { 
+                  G.acildi[G.turn]='cift'; 
+                  if(pairs.length > G.highestCift) G.highestCift = pairs.length; G.acilisDegeri[G.turn] = pairs.length + " çiftle açtı"; updAcilisStatus();
+                  checkAndApplyBonus(G.turn, 'cift', pairs.length);
+                  const pToOpen = pairs; pToOpen.forEach(pair => { pair.forEach(t => { const idx = hand.findIndex(x => x.id === t.id); if(idx !== -1) hand.splice(idx, 1); }); G.tableGroups.push(pair); }); 
+              } 
+          }
+      } else {
+          const pairs=findPairGroups(hand); 
+          if (pairs.length >= minCift) { 
+              G.acildi[G.turn]='cift'; 
+              if(pairs.length > G.highestCift) G.highestCift = pairs.length; G.acilisDegeri[G.turn] = pairs.length + " çiftle açtı"; updAcilisStatus();
+              checkAndApplyBonus(G.turn, 'cift', pairs.length);
+              const pToOpen = pairs; pToOpen.forEach(pair => { pair.forEach(t => { const idx = hand.findIndex(x => x.id === t.id); if(idx !== -1) hand.splice(idx, 1); }); G.tableGroups.push(pair); }); 
+          }
+      }
+  } else {
+      let islendi = false;
+      do { islendi = false;
+          for(let i=0; i<hand.length; i++) { const tile = hand[i];
+              for(let gi=0; gi<G.tableGroups.length; gi++) { const grp = G.tableGroups[gi], swapIdx = getOkeySwapIndex(grp, tile);
+                  if(swapIdx !== -1) { const okeyTile = grp[swapIdx]; grp[swapIdx] = tile; hand.splice(i, 1); hand.push(okeyTile); islendi = true; break; }
+                  if(canAddToGroup(grp, tile, 'end')) { grp.push(tile); hand.splice(i, 1); islendi = true; break; }
+                  if(canAddToGroup(grp, tile, 'start')) { grp.unshift(tile); hand.splice(i, 1); islendi = true; break; }
+              } if(islendi) break;
+          }
+      } while(islendi);
+      if (G.acildi[G.turn] === 'cift') { const newPairs = findPairGroups(hand); if (newPairs && newPairs.length > 0) { newPairs.forEach(p => { p.forEach(t => { const idx = hand.findIndex(x => x.id === t.id); if(idx !== -1) hand.splice(idx, 1); }); G.tableGroups.push(p); }); } } 
+      else { const newGroups = findOptimalGroups(hand); if (newGroups && newGroups.length > 0) { newGroups.forEach(g => { g.tiles.forEach(t => { const idx = hand.findIndex(x => x.id === t.id); if(idx !== -1) hand.splice(idx, 1); }); G.tableGroups.push(g.tiles); }); } }
+  }
+  let wi=0,wv=-1;for(let i=0;i<hand.length;i++){if(isOkey(hand[i]))continue;if(hand[i].n>wv){wv=hand[i].n;wi=i;}}
+  const atilan=hand.splice(wi,1)[0]; G.disc.push(atilan); G.oppDisc[p].push(atilan); renderAll();setMsg(G.names[G.turn]+' oynadı.');
+  if(G.acildi[G.turn]&&hand.length<=0){ G.okeyBiten = isOkey(atilan); endEl(G.turn); return; } nextTurn();
+}
+</script>
 </body>
 </html>
