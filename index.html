@@ -126,9 +126,12 @@ function addChatMsg(msg) {
 }
 
 function saveGameStats() {
-  if(!currentUser || !G || !G.scores) return;
-  const myScore = G.scores[0];
-  const minScore = Math.min(...G.scores);
+  if(!currentUser) return;
+  // G yoksa son kaydedilen skorları kullan
+  const scores = (G && G.scores) ? G.scores : window._lastScores;
+  if(!scores) return;
+  const myScore = scores[0];
+  const minScore = Math.min(...scores);
   const isWin = myScore === minScore;
   supa.from('game_history').insert({
     user_id: currentUser.id,
@@ -140,7 +143,7 @@ function saveGameStats() {
       total_games: (data.total_games||0) + 1,
       total_wins: (data.total_wins||0) + (isWin ? 1 : 0),
       total_score: (data.total_score||0) + myScore
-    }).eq('id', currentUser.id);
+    }).eq('id', currentUser.id).then(r => console.log('Profil güncellendi:', r));
   });
 }
 
@@ -1585,6 +1588,8 @@ function nextEl(){
       document.getElementById('end-icon').textContent=icon;
       document.getElementById('end-title').textContent=winText;
       document.getElementById('end-text').textContent='Tüm eller tamamlandı.';
+      // Skorları sakla (saveGameStats için)
+      window._lastScores = [...G.scores];
       // Skor tablosu
       const scoresHtml = G.scores.map((s,i)=>{
         const isMe = i===0;
