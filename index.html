@@ -413,12 +413,14 @@ function dealWithSeed(seed, names) {
   document.getElementById('el-chip').textContent = 'El: ' + G.curEl + '/' + G.totalEl;
   document.getElementById('okey-bar').textContent = 'Okey: ' + CLONG[G.okey.c] + ' ' + G.okey.n;
   
-  renderGosterge(); renderAll(); setMsg('Oyun başladı! Sıranı bekle.'); updTurn(); updBtns(); updAcilisStatus(); startTimer();
+  renderGosterge(); renderAll(); setMsg('Oyun başladı! Sıranı bekle.'); updTurn(); updBtns(); updAcilisStatus(); 
+G.turnEndTime = Date.now() + (G.normalTime * 1000); // İLK SÜREYİ BAŞLAT
+startTimer();
 }
 
 function loadGameState(state) {
   if(!state || state.globalTurn === undefined) return;
-  if(state.last_seat === mySeat) return; // Kendi hamlemizin yankısını yoksay
+  if(state.last_seat === mySeat) return; 
 
   G.deck = state.deck || [];
   G.tableGroups = state.tableGroups || [];
@@ -445,20 +447,13 @@ function loadGameState(state) {
       if (G.acildi[i] && G.opp[i-1] && G.opp[i-1].length === 0 && G.phase === 'draw') { endEl(i); }
   }
   
-  // Süre bilgisini okuyup senkronize et
+  // SÜRE SENKRONİZASYONU BURADA BAŞLIYOR
   if (state.turnEndTime) {
       G.turnEndTime = state.turnEndTime;
-      if(turnTimer) clearInterval(turnTimer);
-      turnTimer = setInterval(() => {
-          const now = Date.now();
-          G.timeLeft = Math.ceil((G.turnEndTime - now) / 1000);
-          if (G.timeLeft < 0) G.timeLeft = 0;
-          updTimerUI();
-          if (G.timeLeft <= 0) { clearInterval(turnTimer); if (G.turn === 0) autoPlayHuman(); }
-      }, 1000);
+      G.turnEndTime = Date.now() + (G.normalTime * 1000); // İlk elin süresini başlat
+      startTimer();
   }
 
-  // Düşen / Bota dönen bir oyuncu varsa "Host" botu devralsın
   if (isMultiplayer && isBotSeat(state.globalTurn) && amIHost()) {
       if(window.botTimeout) clearTimeout(window.botTimeout);
       window.botTimeout = setTimeout(() => {
@@ -1497,7 +1492,9 @@ function deal(){
   for(let i=0;i<14;i++)G.opp[0].push(G.deck.pop()); for(let i=0;i<14;i++)G.opp[1].push(G.deck.pop()); for(let i=0;i<14;i++)G.opp[2].push(G.deck.pop());
   tiles.forEach((t,i)=>{const r=i<8?0:1,s=i<8?i:i-8;G.grid[r][s]=t;});
   document.getElementById('el-chip').textContent='El: '+G.curEl+'/'+G.totalEl; document.getElementById('okey-bar').textContent='Okey: '+CLONG[G.okey.c]+' '+G.okey.n;
-  renderGosterge(); renderAll(); setMsg('15 taşın var! Aç, taşı at veya bitir.'); updTurn();updBtns();updAcilisStatus(); startTimer(); 
+  renderGosterge(); renderAll(); setMsg('15 taşın var! Aç, taşı at veya bitir.'); updTurn();updBtns();updAcilisStatus(); 
+G.turnEndTime = Date.now() + (G.normalTime * 1000); // İLK SÜREYİ BAŞLAT
+startTimer(); 
 }
 
 function updAcilisStatus() {
@@ -1518,12 +1515,7 @@ function updAcilisStatus() {
 // YENİ ZAMAN DAMGASI İLE ÇALIŞAN SÜRE FONKSİYONU VE AFK KONTROLÜ
 function startTimer() {
   if (turnTimer) clearInterval(turnTimer); 
-  const duration = G.acildi[G.turn] ? G.acikTime : G.normalTime;
   
-  if (!isMultiplayer || G.turn === 0 || (isMultiplayer && amIHost() && isBotSeat((G.turn + mySeat)%4))) {
-      G.turnEndTime = Date.now() + (duration * 1000); 
-  }
-
   turnTimer = setInterval(() => { 
       if (!G.turnEndTime) return;
       const now = Date.now();
@@ -2396,11 +2388,15 @@ function findOptimalGroups(hand){
 
 function nextTurn(){
   G.turn=(G.turn+1)%4; G.phase='draw'; G.turnStartedOpen=G.acildi[G.turn]; 
+  
+  // YENİ: Sıradaki oyuncunun süresini BAŞLAT ve herkese gitmesini sağla!
+  const duration = G.acildi[G.turn] ? G.acikTime : G.normalTime;
+  G.turnEndTime = Date.now() + (duration * 1000);
+  
   updTurn(); startTimer(); 
   
   if(isMultiplayer){ 
      renderAll(); updBtns(); 
-     // Yeni sıra bir bota aitse ve sen masanın "kurucusu/lideri" isen botun yerine oyna
      const globalTurn = (G.turn + mySeat) % 4;
      if(isBotSeat(globalTurn) && amIHost()) {
          setTimeout(() => {
