@@ -92,7 +92,7 @@ function amIHost() {
 function isBotSeat(globalSeat) {
   if (!currentRoomData) return false;
   const user = currentRoomData['seat'+globalSeat+'_user'];
-  // Kullanıcı yoksa (null) veya bot ise true döndür
+  // Kullanıcı yoksa (boşsa) veya ismi bot ile başlıyorsa true döndür
   return !user || user.startsWith('bot-'); 
 }
 
@@ -107,7 +107,8 @@ function handleRoomUpdate(room) {
   currentRoomData = room;
   updateSeatDisplay(room);
   
-  const names = [room.seat0_name, room.seat1_name, room.seat2_name, room.seat3_name].map((n,i) => n || ('Oyuncu '+(i+1)));
+  const names = [room.seat0_name, room.seat1_name, room.seat2_name, room.seat3_name]
+    .map((n,i) => n || ('Oyuncu '+(i+1)));
   
   // Masadan atıldım mı kontrolü
   if(isMultiplayer && mySeat >= 0) {
@@ -139,14 +140,17 @@ function handleRoomUpdate(room) {
         loadGameState(room.game_state);
     }
 
-    // YENİ EK: Eğer oyuncu çıktıysa ve sıra o an ondaysa, Host anında bot olarak oynasın
+    // BOTA DÖNÜŞME SONRASI OTOMATİK OYNATMA MANTIĞI
+    // Eğer birisi bota dönüştüyse, Kurucu (Host) olan kişi anında sırayı devralsın
     if (G && G.phase && G.phase !== 'end' && amIHost()) {
-        const globalTurn = (G.turn + mySeat) % 4;
-        if (isBotSeat(globalTurn)) {
+        const currentGlobalTurn = (G.turn + mySeat) % 4;
+        if (isBotSeat(currentGlobalTurn)) {
             if(window.botTimeout) clearTimeout(window.botTimeout);
             window.botTimeout = setTimeout(() => {
+                // Eğer hala sıra bottaysa oyna ve gönder
                 if(G.turn !== 0 && isBotSeat((G.turn + mySeat) % 4)) {
-                    botPlay(); saveGameState();
+                    botPlay(); 
+                    saveGameState();
                 }
             }, 1000);
         }
@@ -1515,7 +1519,12 @@ function updAcilisStatus() {
 // YENİ ZAMAN DAMGASI İLE ÇALIŞAN SÜRE FONKSİYONU VE AFK KONTROLÜ
 function startTimer() {
   if (turnTimer) clearInterval(turnTimer); 
+  const duration = G.acildi[G.turn] ? G.acikTime : G.normalTime;
   
+  if (!isMultiplayer || G.turn === 0 || (isMultiplayer && amIHost() && isBotSeat((G.turn + mySeat)%4))) {
+      G.turnEndTime = Date.now() + (duration * 1000); 
+  }
+
   turnTimer = setInterval(() => { 
       if (!G.turnEndTime) return;
       const now = Date.now();
@@ -1527,30 +1536,24 @@ function startTimer() {
           if (G.turn === 0) {
               clearInterval(turnTimer); 
               autoPlayHuman(); 
-          } else if (isMultiplayer && amIHost()) {
-              // HOST KURTARMA SİSTEMİ: Oyuncu koptuysa (Süre -3 olduysa)
+          } else if (isMultiplayer) {
+              // HERHANGİ BİR AKTİF OYUNCU KOPAN KİŞİYİ YAKALAYABİLİR
               if (G.timeLeft < -3) {
-                  clearInterval(turnTimer);
-                  console.log("Oyuncu AFK veya koptu. Host devralıyor...");
-                  
                   const globalTurn = (G.turn + mySeat) % 4;
-                  
-                  if (!isBotSeat(globalTurn)) {
+                  // Eğer adam zaten bot değilse ve henüz işlem başlatılmadıysa
+                  if (!isBotSeat(globalTurn) && !window.kickingOffline) {
+                      console.log("Oyuncu koptu. Bota çevriliyor...");
+                      window.kickingOffline = true; // Çoklu istek atılmasını engelle
+                      
+                      // SADECE koltuğu bota çevir (Taş atma işlemini DB güncellenince yapacağız)
                       const update = {};
                       update['seat' + globalTurn + '_user'] = 'bot-' + globalTurn;
                       update['seat' + globalTurn + '_name'] = 'Bot ' + (globalTurn+1);
-                      supa.from('rooms').update(update).eq('id', myRoomId);
                       
-                      // LOKAL HAFIZAYI ANINDA GÜNCELLE Kİ OYUN KİTLENMESİN
-                      if(currentRoomData) {
-                          currentRoomData['seat' + globalTurn + '_user'] = 'bot-' + globalTurn;
-                          currentRoomData['seat' + globalTurn + '_name'] = 'Bot ' + (globalTurn+1);
-                      }
+                      supa.from('rooms').update(update).eq('id', myRoomId).then(() => {
+                          window.kickingOffline = false;
+                      });
                   }
-                  
-                  // Bot olarak onun yerine oyna ve durumu herkese gönder
-                  botPlay();
-                  saveGameState();
               }
           }
       } 
