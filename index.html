@@ -178,20 +178,25 @@ function hideWaitingScreen() {
 }
 
 // Masadan ayrıl
+let lastMasaNo = null; // Son çıkılan masa
+
 async function leaveRoom() {
   if(!myRoomId || mySeat < 0) return;
   
+  // Koltuktan çık
   const update = {};
   update['seat' + mySeat + '_user'] = null;
   update['seat' + mySeat + '_name'] = null;
-  
   await supa.from('rooms').update(update).eq('id', myRoomId);
+  
+  // Son masayı kaydet
+  lastMasaNo = currentMasaNo;
   
   myRoomId = null; mySeat = -1; isMultiplayer = false;
   hideWaitingScreen();
-  
   if(roomSub) { supa.removeChannel(roomSub); roomSub = null; }
-  window.close(); // Yeni sekme ise kapat
+  if(waitingInterval) { clearInterval(waitingInterval); waitingInterval = null; }
+  window.close();
 }
 
 // Oyun başlatma - çok oyunculu mod
@@ -235,17 +240,34 @@ async function startMultiplayerGame(masaNo) {
       clearInterval(checkInterval);
       hideWaitingScreen();
       
-      // İlk oturan başlatır (seat 0)
+      const realNames = names.map((n,i) => n || ('Oyuncu ' + (i+1)));
+      G.names = realNames;
+      // İsimleri güncelle
+      realNames.forEach((n,i) => {
+        const el = document.getElementById('n'+i);
+        if(el) el.textContent = n;
+        const scEl = document.getElementById('sc-n'+i);
+        if(scEl) scEl.textContent = n + ':';
+      });
+      
       if(mySeat === 0 && room.status !== 'playing') {
-        // Oyunu başlat ve state'i kaydet
-        G.names = names.map((n,i) => n || ('Oyuncu ' + (i+1)));
+        // Seat 0 oyunu başlatır
         await supa.from('rooms').update({status: 'playing'}).eq('id', myRoomId);
-        // startGame zaten çağrıldı, state kaydet
-        setTimeout(saveGameState, 500);
-      } else if(room.status === 'playing' && room.game_state) {
-        // Diğer oyuncular state'i yükle
-        G.names = names.map((n,i) => n || ('Oyuncu ' + (i+1)));
-        loadGameState(room.game_state);
+        deal(); // Taşları dağıt
+        setTimeout(async () => {
+          // Game state'i kaydet ki diğerleri görsün
+          const state = {
+            turn: G.turn, scores: G.scores, tableGroups: G.tableGroups,
+            acildi: G.acildi, okey: G.okey, gosterge: G.gosterge,
+            names: G.names, deck_count: G.deck.length,
+            last_action: Date.now(), last_seat: mySeat, started: true
+          };
+          await supa.from('rooms').update({game_state: state}).eq('id', myRoomId);
+        }, 500);
+      } else if(room.status === 'playing') {
+        // Diğer oyuncular kendi taşlarını dağıtır (seed ile senkronize edilecek)
+        deal();
+        setMsg('Oyun başladı! Sıra: ' + realNames[0]);
       }
     }
   }, 2000);
@@ -589,21 +611,79 @@ function goToLobby() {
 }
 
 function lobiyeDon() {
-  if(confirm('Oyunu bırakmak istediğinize emin misiniz? Bu el kaydedilmeyecek.')) {
+  if(confirm('Masadan çıkmak istediğinize emin misiniz?')) {
     if(typeof turnTimer !== 'undefined') clearInterval(turnTimer);
+    if(typeof waitingInterval !== 'undefined' && waitingInterval) { clearInterval(waitingInterval); waitingInterval = null; }
+    
+    // Koltuktan çık, botu yerleştir
+    if(typeof isMultiplayer !== 'undefined' && isMultiplayer && myRoomId && mySeat >= 0) {
+      const update = {};
+      update['seat' + mySeat + '_user'] = null;
+      update['seat' + mySeat + '_name'] = null;
+      supa.from('rooms').update(update).eq('id', myRoomId);
+      if(G && G.phase && G.phase !== 'end') {
+        setTimeout(() => {
+          const botUpdate = {};
+          botUpdate['seat' + mySeat + '_user'] = 'bot-' + mySeat;
+          botUpdate['seat' + mySeat + '_name'] = 'Bot ' + (mySeat+1);
+          supa.from('rooms').update(botUpdate).eq('id', myRoomId);
+        }, 300);
+      }
+    }
+    
+    lastMasaNo = currentMasaNo;
+    if(typeof myRoomId !== 'undefined') { myRoomId = null; mySeat = -1; }
+    if(typeof isMultiplayer !== 'undefined') isMultiplayer = false;
+    if(typeof roomSub !== 'undefined' && roomSub) { supa.removeChannel(roomSub); roomSub = null; }
+    
+    if(typeof hideWaitingScreen === 'function') hideWaitingScreen();
     document.getElementById('game').style.display = 'none';
     document.getElementById('mode-badge').style.display = 'none';
-  isSpectating = false;
-  updateMasaDurum(null);
-  const oturBar = document.getElementById('spec-otur-bar');
-  if(oturBar) oturBar.style.display = 'none';
     document.getElementById('chat-toggle').style.display = 'none';
+    isSpectating = false;
+    updateMasaDurum(null);
+    const oturBar = document.getElementById('spec-otur-bar');
+    if(oturBar) oturBar.style.display = 'none';
     chatOpen = false;
     document.getElementById('chat-panel').style.transform = 'translateX(100%)';
     currentRoomId = null;
+    
+    // Lobi ekranını göster
     document.getElementById('lobby').style.display = 'flex';
-    if(currentUser) loadProfile().then(() => showLobby()); else showLobby();
+    if(currentUser) loadProfile().then(() => { showLobby(); showGeriDonBtn(lastMasaNo); });
+    else { showLobby(); showGeriDonBtn(lastMasaNo); }
   }
+}
+
+let lastMasaNo = null;
+
+function showGeriDonBtn(masaNo) {
+  if(!masaNo) return;
+  let bar = document.getElementById('geri-don-bar');
+  if(!bar) {
+    bar = document.createElement('div');
+    bar.id = 'geri-don-bar';
+    bar.style.cssText = 'position:fixed;top:0;left:0;right:0;background:rgba(0,100,50,.9);border-bottom:2px solid #88ff88;padding:8px 16px;display:flex;align-items:center;gap:10px;z-index:600;';
+    document.body.appendChild(bar);
+  }
+  bar.innerHTML = `
+    <span style="font-size:13px;color:#88ff88;font-weight:700;">Masa ${masaNo} — tekrar katılmak ister misin?</span>
+    <button onclick="geriDonMasaya(${masaNo})" style="padding:5px 16px;background:#22aa55;border:1.5px solid #88ff88;color:#fff;border-radius:7px;font-size:12px;font-weight:800;cursor:pointer;">↩ Geri Dön</button>
+    <button onclick="izleMasaYeniSekme(${masaNo})" style="padding:5px 14px;background:rgba(232,200,74,.2);border:1.5px solid #e8c84a;color:#e8c84a;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;">👁 İzle</button>
+    <button onclick="document.getElementById('geri-don-bar').style.display='none'" style="margin-left:auto;padding:4px 10px;background:none;border:1px solid rgba(255,255,255,.3);color:rgba(255,255,255,.6);border-radius:6px;font-size:11px;cursor:pointer;">Kapat</button>
+  `;
+  bar.style.display = 'flex';
+}
+
+function geriDonMasaya(masaNo) {
+  const bar = document.getElementById('geri-don-bar');
+  if(bar) bar.style.display = 'none';
+  const url = new URL(window.location.href);
+  url.searchParams.set('masa', masaNo);
+  url.searchParams.set('mode', 'online');
+  localStorage.setItem('81okey_guest', guestName || '');
+  localStorage.setItem('81okey_gamemode', 'online');
+  window.open(url.toString(), '_blank');
 }
 
 // SAYFA YÜKLENINCE
@@ -660,7 +740,7 @@ window.addEventListener('load', async () => {
 
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>81 Okey — Son El</title>
+<title>81Okey</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:system-ui,sans-serif;background:#062033;color:#fff;overflow:hidden;touch-action:none;}
