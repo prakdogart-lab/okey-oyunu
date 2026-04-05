@@ -2,8 +2,8 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-Satır 5: <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-Satır 6: <script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
+<script>
 // ═══════════════════════════════════
 // GERÇEK ZAMANLI ÇOK OYUNCULU SİSTEM
 // ═══════════════════════════════════
@@ -15,60 +15,57 @@ let waitingInterval = null;
 let isMultiplayer = false;
 
 // Masaya otur - Supabase'de koltuk al
-async function joinRoom(masaNo) {
-  // Masa bul
-  const {data: rooms, error} = await supa
-    .from('rooms')
-    .select('*')
-    .eq('masa_no', masaNo)
-    .single();
-  
-  if(error || !rooms) {
-    console.error('Masa bulunamadı:', error);
-    return false;
-  }
+async function joinRoom(masaNo, settings) {
+  const {data: rooms, error} = await supa.from('rooms').select('*').eq('masa_no', masaNo).single();
+  if(error || !rooms) { console.error('Masa bulunamadı:', error); return false; }
   
   myRoomId = rooms.id;
   const myName = (currentUser && currentProfile) ? currentProfile.username : (guestName || 'Misafir');
   const myUserId = currentUser ? currentUser.id : ('guest-' + Date.now());
   
-  // Aynı kullanıcı zaten masada mı?
   for(let i = 0; i < 4; i++) {
-    if(rooms['seat' + i + '_user'] === myUserId) {
-      alert('Bu masada zaten oturuyorsunuz!');
-      return false;
-    }
+    if(rooms['seat' + i + '_user'] === myUserId) { alert('Bu masada zaten oturuyorsunuz!'); return false; }
   }
   
-  // Boş koltuk bul
   let bosSeat = -1;
   for(let i = 0; i < 4; i++) {
     if(!rooms['seat' + i + '_user']) { bosSeat = i; break; }
   }
-  
-  if(bosSeat === -1) {
-    alert('Masa dolu!');
-    return false;
-  }
+  if(bosSeat === -1) { alert('Masa dolu!'); return false; }
   
   mySeat = bosSeat;
+  isMasaKurucu = (bosSeat === 0);
   
-  // Koltuğu al
   const update = {};
   update['seat' + bosSeat + '_user'] = myUserId;
   update['seat' + bosSeat + '_name'] = myName;
   
-  const {error: updateError} = await supa
-    .from('rooms')
-    .update(update)
-    .eq('id', myRoomId);
-  
-  if(updateError) {
-    console.error('Koltuk alınamadı:', updateError);
-    return false;
+  // Kurucu ise ayarları kaydet
+  if(isMasaKurucu && settings) {
+    update.total_el = settings.totalEl;
+    update.acilis_puan = settings.acilisPuan;
+    update.normal_time = settings.normalTime;
+    update.acik_time = settings.acikTime;
+    update.oyun_turu = settings.oyunTuru;
+    update.yardim_modu = settings.yardimModu;
+    update.diff = settings.diff;
   }
   
-  console.log('Koltuk alındı:', bosSeat);
+  // Katılımcı ise masa ayarlarını G'ye yükle
+  if(!isMasaKurucu && rooms.total_el) {
+    G.totalEl = rooms.total_el;
+    G.acilisPuan = rooms.acilis_puan || 81;
+    G.normalTime = rooms.normal_time || 15;
+    G.acikTime = rooms.acik_time || 30;
+    G.diff = rooms.diff || 'medium';
+    G.isEsli = rooms.oyun_turu === 'esli';
+    G.yardim = rooms.yardim_modu !== 'yardimsiz';
+  }
+  
+  const {error: updateError} = await supa.from('rooms').update(update).eq('id', myRoomId);
+  if(updateError) { console.error('Koltuk alınamadı:', updateError); return false; }
+  
+  console.log('Koltuk alındı:', bosSeat, isMasaKurucu ? '(Kurucu)' : '(Katılımcı)');
   return true;
 }
 
@@ -228,8 +225,10 @@ async function leaveRoom() {
 }
 
 // Oyun başlatma - çok oyunculu mod
-async function startMultiplayerGame(masaNo) {
-  const joined = await joinRoom(masaNo);
+let isMasaKurucu = false;
+
+async function startMultiplayerGame(masaNo, settings) {
+  const joined = await joinRoom(masaNo, settings);
   if(!joined) return;
   
   isMultiplayer = true;
@@ -237,7 +236,6 @@ async function startMultiplayerGame(masaNo) {
   subscribeToChatRoom('masa-' + masaNo);
   document.getElementById('chat-toggle').style.display = 'flex';
   
-  // Bekleme ekranı
   document.getElementById('setup').style.display = 'none';
   document.getElementById('game').style.display = 'flex';
   showWaitingScreen(masaNo, 1);
@@ -827,19 +825,46 @@ window.addEventListener('load', async () => {
     document.getElementById('lobby').style.display = 'none';
     
     if(modeParam === 'izle') {
-      // İzleme modu
       document.getElementById('game').style.display = 'flex';
       setTimeout(() => izleMasa(currentMasaNo), 100);
-    } else {
-      // Oyun modu - setup ekranını göster
+    } else if(modeParam === 'katilimci') {
+      // Katılımcı - direkt bekleme ekranına git, setup yok
       document.getElementById('game').style.display = 'none';
       if(currentUser || guestName) {
-        // Setup'ı göster
+        gameMode = 'online';
+        // Varsayılan ayarlarla direkt joinRoom
+        const defSettings = {totalEl:5,acilisPuan:81,normalTime:15,acikTime:30,oyunTuru:'bireysel',yardimModu:'yardimli',diff:'medium'};
+        // G objesini başlat
+        const pn = (currentUser && currentProfile) ? currentProfile.username : (guestName || 'Oyuncu');
+        G = {diff:'medium',totalEl:5,acilisPuan:81,curEl:1,scores:[0,0,0,0],teamScores:[0,0],
+          isEsli:false,yardim:true,names:[pn,'Oyuncu 1','Oyuncu 2','Oyuncu 3'],
+          normalTime:15,acikTime:30,timeLeft:0,mustUseTile:null,mustOpenThisTurn:false,
+          deck:[],disc:[],grid:[[],[]],opp:[[],[],[]],okey:null,gosterge:null,turn:0,
+          phase:'discard',sel:null,acildi:[false,false,false,false],tableGroups:[],
+          playerDisc:[],oppDisc:[[],[],[]],hiddenOkeys:new Set(),eldenBiten:false,
+          okeyBiten:false,turnStartedOpen:false,islenenBuTur:0,preOpenState:null,
+          cifteGidiyor:[false,false,false,false],pendingTile:null,
+          highestSeri:80,highestCift:3,acilisDegeri:[null,null,null,null],
+          history:[],roundBonus:[0,0,0,0],roundPenalties:[0,0,0,0]};
+        document.getElementById('n0').textContent = pn;
+        document.getElementById('game').style.display = 'flex';
+        const badge = document.getElementById('mode-badge');
+        badge.textContent = '🌐 Çevrimiçi — Masa ' + currentMasaNo;
+        badge.style.display = 'block';
+        document.getElementById('disc-player').addEventListener('click',()=>{if(G.turn===0&&G.phase==='discard'&&G.sel) doDiscard(G.sel);});
+        doResize();
+        startMultiplayerGame(currentMasaNo, defSettings);
+      } else {
+        document.getElementById('auth-screen').style.display = 'flex';
+      }
+    } else {
+      // Kurucu - setup göster
+      document.getElementById('game').style.display = 'none';
+      if(currentUser || guestName) {
         document.getElementById('setup').style.display = 'flex';
         if(currentUser && currentProfile) document.getElementById('pname').value = currentProfile.username;
         else if(guestName) document.getElementById('pname').value = guestName;
       } else {
-        // Giriş yapılmamış - auth göster
         document.getElementById('auth-screen').style.display = 'flex';
       }
     }
@@ -1416,21 +1441,51 @@ async function initLobby() {
 // Sayfa yüklenince lobiyi oluştur
 // initLobby auth sonrası
 
-function openSetup(masaNo) {
+async function openSetup(masaNo) {
     currentMasaNo = masaNo || 1;
     isSpectating = false;
     const oturBar = document.getElementById('spec-otur-bar');
     if(oturBar) oturBar.style.display = 'none';
-    if(currentUser && currentProfile) document.getElementById('pname').value = currentProfile.username;
-    else if(guestName) document.getElementById('pname').value = guestName;
-    // Yeni sekmede aç
-    const url = new URL(window.location.href);
-    url.searchParams.set('masa', currentMasaNo);
-    url.searchParams.set('mode', gameMode);
-    // Oturum bilgisini localStorage'a kaydet
-    localStorage.setItem('81okey_guest', guestName || '');
-    localStorage.setItem('81okey_gamemode', gameMode);
-    window.open(url.toString(), '_blank');
+    
+    if(gameMode !== 'online') {
+      // Bot modu - setup göster
+      if(currentUser && currentProfile) document.getElementById('pname').value = currentProfile.username;
+      else if(guestName) document.getElementById('pname').value = guestName;
+      const url = new URL(window.location.href);
+      url.searchParams.set('masa', currentMasaNo);
+      url.searchParams.set('mode', gameMode);
+      localStorage.setItem('81okey_guest', guestName || '');
+      localStorage.setItem('81okey_gamemode', gameMode);
+      window.open(url.toString(), '_blank');
+      return;
+    }
+    
+    // Online mod - masa dolu mu, kurucu mu kontrol et
+    const {data: room} = await supa.from('rooms').select('*').eq('masa_no', masaNo).single();
+    
+    if(!room) { alert('Masa bulunamadı!'); return; }
+    
+    const seat0Bos = !room.seat0_user;
+    
+    if(seat0Bos) {
+      // Kurucu - setup göster
+      if(currentUser && currentProfile) document.getElementById('pname').value = currentProfile.username;
+      else if(guestName) document.getElementById('pname').value = guestName;
+      const url = new URL(window.location.href);
+      url.searchParams.set('masa', currentMasaNo);
+      url.searchParams.set('mode', 'online');
+      localStorage.setItem('81okey_guest', guestName || '');
+      localStorage.setItem('81okey_gamemode', 'online');
+      window.open(url.toString(), '_blank');
+    } else {
+      // Katılımcı - direkt bekleme ekranına git (setup yok)
+      localStorage.setItem('81okey_guest', guestName || '');
+      localStorage.setItem('81okey_gamemode', 'online');
+      const url = new URL(window.location.href);
+      url.searchParams.set('masa', currentMasaNo);
+      url.searchParams.set('mode', 'katilimci');
+      window.open(url.toString(), '_blank');
+    }
 }
 
 function izleMasaYeniSekme(masaNo) {
@@ -1559,12 +1614,17 @@ function startGame(){
   const badge = document.getElementById('mode-badge');
 
   if(gameMode === 'online' && (currentUser || guestName)) {
-    // Çok oyunculu mod - bekleme ekranı göster
     badge.textContent = '🌐 Çevrimiçi — Masa ' + (currentMasaNo||1);
     badge.style.display = 'block';
     updateMasaDurum(currentMasaNo);
-    startMultiplayerGame(currentMasaNo);
-    return; // deal() startMultiplayerGame içinden çağrılacak
+    const settings = {
+      totalEl, acilisPuan, normalTime, acikTime,
+      oyunTuru: val('oyunTuru')||'bireysel',
+      yardimModu: val('yardimModu')||'yardimli',
+      diff: val('diffs')||'medium'
+    };
+    startMultiplayerGame(currentMasaNo, settings);
+    return;
   } else {
     // Bot modu
     currentRoomId = 'local-' + Date.now();
