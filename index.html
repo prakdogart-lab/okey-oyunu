@@ -2,312 +2,29 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>/ ── OYUN MODU ──
-let gameMode = 'online'; // 'online' veya 'bot'
-let currentMasaNo = null;
-let isSpectating = false;
-let spectatorSub = null;
-let onlineRoomSub = null;
-let disconnectTimer = null;
-
-function pickMod(mod) {
-  gameMode = mod;
-  document.getElementById('mod-online').classList.toggle('on', mod==='online');
-  document.getElementById('mod-bot').classList.toggle('on', mod==='bot');
-  // Bot modunda bazı ayarlar gizle
-  const botSettings = document.getElementById('diffs').closest('.s-group');
-  if(mod==='online') {
-    document.querySelector('#mod-online').style.borderColor='#e8c84a';
-  }
-}
-
-// openSetup masaNo ile çağrılır
-function openSetup(masaNo) {
-  currentMasaNo = masaNo || 1;
-  // Giriş yapmış kullanıcının adını doldur
-  if(currentUser && currentProfile) {
-    document.getElementById('pname').value = currentProfile.username;
-  } else if(guestName) {
-    document.getElementById('pname').value = guestName;
-  }
-  document.getElementById('setup').style.display = 'flex';
-}
-
-// ── İZLEYİCİ MOD ──
-async function izleMasa(masaNo) {
-  isSpectating = true;
-  currentMasaNo = masaNo;
-  
-  // Spectator bar göster
-  document.getElementById('spectator-bar').classList.add('show');
-  document.getElementById('spec-masa-no').textContent = masaNo;
-  
-  // Lobi gizle, oyun göster (ıstakalar gizlenmiş)
-  document.getElementById('lobby').style.display = 'none';
-  document.getElementById('game').style.display = 'flex';
-  
-  // Oyunu readonly modda başlat (sadece masa görünür)
-  startSpectatorMode(masaNo);
-  
-  // Sohbete bağlan
-  const roomId = 'masa-' + masaNo;
-  currentRoomId = roomId;
-  subscribeToChatRoom(roomId);
-  document.getElementById('chat-toggle').style.display = 'flex';
-  
-  doResize();
-}
-
-function startSpectatorMode(masaNo) {
-  // Oyun alanını göster ama ıstakaları gizle
-  document.getElementById('rack-outer') && (document.querySelector('.rack-outer').style.visibility = 'hidden');
-  document.querySelectorAll('.acts-col').forEach(el => el.style.visibility = 'hidden');
-  document.querySelector('.bottom-area') && (document.querySelector('.bottom-area').style.opacity = '0.3');
-  
-  // Mode badge
-  const badge = document.getElementById('mode-badge');
-  badge.textContent = '👁 İzleme Modu — Masa ' + masaNo;
-  badge.style.display = 'block';
-  
-  setMsg('İzleme modundasın. Sohbete katılabilirsin.');
-}
-
-function stopSpectating() {
-  isSpectating = false;
-  document.getElementById('spectator-bar').classList.remove('show');
-  document.getElementById('mode-badge').style.display = 'none';
-  document.getElementById('game').style.display = 'none';
-  document.getElementById('chat-toggle').style.display = 'none';
-  document.getElementById('lobby').style.display = 'flex';
-  chatOpen = false;
-  document.getElementById('chat-panel').classList.remove('open');
-  if(spectatorSub) { supa.removeChannel(spectatorSub); spectatorSub = null; }
-  currentRoomId = null;
-}
-
-// ── CEZA SİSTEMİ (OYUNDAN KAÇANLAR) ──
-function startDisconnectPenaltyTimer() {
-  // Oyun başlayınca sayaç başlat
-  // Oyuncu 60 saniye içinde geri dönmezse ceza
-  if(!isOnlineGame() || !currentUser) return;
-  clearTimeout(disconnectTimer);
-}
-
-function onPlayerDisconnect() {
-  if(!isOnlineGame() || !currentUser) return;
-  disconnectTimer = setTimeout(() => {
-    applyDisconnectPenalty();
-  }, 60000); // 60 saniye
-}
-
-async function applyDisconnectPenalty() {
-  if(!currentUser) return;
-  const PENALTY_RATING = -50;
-  
-  // Rating düşür
-  const {data} = await supa.from('profiles').select('rating,xp').eq('id', currentUser.id).single();
-  if(data) {
-    const newRating = Math.max(800, (data.rating||1000) + PENALTY_RATING);
-    await supa.from('profiles').update({rating: newRating}).eq('id', currentUser.id);
-    await supa.from('penalties').insert({
-      user_id: currentUser.id,
-      reason: 'Oyundan erken çıkış',
-      rating_change: PENALTY_RATING
-    });
-    spawnFloatingText('⚠️ Ceza: ' + PENALTY_RATING + ' Rating', '#ff4444');
-  }
-}
-
-// Sayfa kapanınca ceza uygula
-window.addEventListener('beforeunload', (e) => {
-  if(isOnlineGame() && currentUser && G && G.phase !== 'end') {
-    // Beacon API ile ceza kaydı gönder
-    const data = JSON.stringify({user_id: currentUser.id});
-    navigator.sendBeacon && navigator.sendBeacon('/api/penalty', data);
-    // Not: Bu tam çalışmaz GitHub Pages'de, Supabase Realtime ile yapılacak
-    onPlayerDisconnect();
-  }
-});
-
-// ── ONLINE OYUN BAŞLATMA ──
-async function startOnlineGame() {
-  const pn = document.getElementById('pname').value.trim() || (currentProfile?.username) || guestName || 'Oyuncu';
-  
-  // Supabase'de oda oluştur
-  const roomId = 'masa-' + currentMasaNo;
-  currentRoomId = roomId;
-  
-  // Mode badge
-  const badge = document.getElementById('mode-badge');
-  badge.textContent = '🌐 Çevrimiçi — Masa ' + currentMasaNo;
-  badge.style.display = 'block';
-  
-  // Sohbet başlat
-  subscribeToChatRoom(roomId);
-  document.getElementById('chat-toggle').style.display = 'flex';
-  
-  return pn;
-}
-
-// ── OYUNU BAŞLATMA (startGame override) ──
-// Orijinal startGame'in önüne geçiyoruz
-const _origStartGame = startGame;
-
-
-// ═══ SUPABASE ═══
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
+// ═══════════════════════════════════
+// SUPABASE + AUTH + SOHBET + SISTEM
+// ═══════════════════════════════════
 const SUPA_URL = 'https://nflxrfolzqecdxcptdmu.supabase.co';
 const SUPA_KEY = 'sb_publishable_EKiFP6Z_nU5Lx9b78hHMPQ_ncdM6ZKx';
 const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+
 let currentUser = null, currentProfile = null, currentRoomId = null;
-let chatSub = null, chatOpen = false, unreadCount = 0, guestName = '';
+let chatSub = null, chatOpen = false, guestName = '';
+let gameMode = 'online';
+let currentMasaNo = 1;
 
-function switchAuthTab(tab) {
-  document.getElementById('auth-giris').style.display = tab==='giris'?'block':'none';
-  document.getElementById('auth-kayit').style.display = tab==='kayit'?'block':'none';
-  document.querySelectorAll('.auth-tab').forEach((t,i)=>t.classList.toggle('on',(i===0&&tab==='giris')||(i===1&&tab==='kayit')));
-  document.getElementById('auth-error').textContent='';
-}
-
-async function doGiris() {
-  const email=document.getElementById('giris-email').value.trim();
-  const pw=document.getElementById('giris-sifre').value;
-  if(!email||!pw){document.getElementById('auth-error').textContent='E-posta ve şifre girin.';return;}
-  const {data,error}=await supa.auth.signInWithPassword({email,password:pw});
-  if(error){document.getElementById('auth-error').textContent='Hata: '+error.message;return;}
-  currentUser=data.user; await loadProfile(); showLobby();
-}
-
-async function doKayit() {
-  const u=document.getElementById('kayit-kullanici').value.trim();
-  const email=document.getElementById('kayit-email').value.trim();
-  const pw=document.getElementById('kayit-sifre').value;
-  if(!u||!email||!pw){document.getElementById('auth-error').textContent='Tüm alanları doldurun.';return;}
-  if(pw.length<6){document.getElementById('auth-error').textContent='Şifre en az 6 karakter.';return;}
-  const {data,error}=await supa.auth.signUp({email,password:pw,options:{data:{username:u}}});
-  if(error){document.getElementById('auth-error').textContent='Hata: '+error.message;return;}
-  currentUser=data.user; await loadProfile(); showLobby();
-}
-
-function doMisafir() {
-  const n=prompt('Misafir adın?','Misafir'+Math.floor(Math.random()*1000));
-  if(!n) return;
-  guestName=n; currentUser=null; showLobby();
-}
-
-async function doLogout() {
-  await supa.auth.signOut(); currentUser=null; currentProfile=null;
-  document.getElementById('lobby').style.display='none';
-  document.getElementById('game').style.display='none';
-  document.getElementById('auth-screen').style.display='flex';
-}
-
-async function loadProfile() {
-  if(!currentUser) return;
-  const {data}=await supa.from('profiles').select('*').eq('id',currentUser.id).single();
-  if(data) currentProfile=data;
-}
-
-function showLobby() {
-  document.getElementById('auth-screen').style.display='none';
-  document.getElementById('lobby').style.display='flex';
-  const nameEl=document.getElementById('lobby-username');
-  const scoreEl=document.getElementById('lobby-score');
-  const avEl=document.getElementById('lobby-avatar');
-  const logoutBtn=document.getElementById('logout-btn');
-  if(currentUser&&currentProfile) {
-    const lvl = getLevel(currentProfile.xp||0);
-    nameEl.textContent = getLevelBadge(lvl.level) + ' ' + currentProfile.username;
-    scoreEl.textContent = '⚡ ' + (currentProfile.rating||1000) + ' | Seviye ' + lvl.level + ' ' + lvl.name;
-    avEl.textContent=currentProfile.username.charAt(0).toUpperCase();
-    logoutBtn.style.display='';
-  } else {
-    nameEl.textContent=guestName||'Misafir';
-    scoreEl.textContent='Misafir — geçmiş kaydedilmez';
-    avEl.textContent='👤';
-    logoutBtn.style.display='none';
-  }
-  initLobby();
-}
-
-async function showProfile() {
-  if(!currentUser){alert('Profil için giriş yapın.');return;}
-  const {data}=await supa.from('profiles').select('*').eq('id',currentUser.id).single();
-  if(!data){alert('Profil yüklenemedi.');return;}
-  currentProfile=data;
-  const xp = data.xp||0;
-  const rating = data.rating||1000;
-  const lvl = getLevel(xp);
-  const nextLvl = getNextLevel(xp);
-  const onlineGames = data.online_games||0;
-  const onlineWins = data.online_wins||0;
-  const wr = onlineGames ? Math.round(onlineWins/onlineGames*100) : 0;
-  const xpProgress = nextLvl ? Math.round((xp - lvl.min)/(nextLvl.min - lvl.min)*100) : 100;
-
-  document.getElementById('profile-content').innerHTML=`
-    <div style="text-align:center;margin-bottom:14px;">
-      <div style="font-size:36px;margin-bottom:4px;">${getLevelBadge(lvl.level)}</div>
-      <div style="font-size:20px;font-weight:900;color:#e8c84a;">${data.username}</div>
-      <div style="font-size:13px;color:#aaa;margin-top:2px;">Seviye ${lvl.level} — ${lvl.name}</div>
-    </div>
-    <div style="margin-bottom:12px;">
-      <div style="display:flex;justify-content:space-between;font-size:11px;color:#aaa;margin-bottom:4px;">
-        <span>XP: ${xp}</span>
-        <span>${nextLvl ? nextLvl.name+' için '+nextLvl.min+' XP' : '🌟 Maks Seviye'}</span>
-      </div>
-      <div style="background:rgba(255,255,255,.1);border-radius:6px;height:8px;overflow:hidden;">
-        <div style="background:linear-gradient(90deg,#e8c84a,#ff8c00);height:100%;width:${xpProgress}%;border-radius:6px;transition:width .5s;"></div>
-      </div>
-    </div>
-    <div class="profile-stat"><span>⚡ Rating</span><b style="color:#e8c84a;">${rating}</b></div>
-    <div class="profile-stat"><span>🎮 Online Oyun</span><b>${onlineGames}</b></div>
-    <div class="profile-stat"><span>🏆 Online Kazanma</span><b style="color:#88ff88;">${onlineWins}</b></div>
-    <div class="profile-stat"><span>📊 Kazanma Oranı</span><b>${wr}%</b></div>
-    <div class="profile-stat"><span>📅 Üyelik</span><b>${new Date(data.created_at).toLocaleDateString('tr-TR')}</b></div>
-  `;
-  document.getElementById('profile-modal').classList.add('show');
-}
-
-function toggleChat() {
-  chatOpen=!chatOpen;
-  document.getElementById('chat-panel').classList.toggle('open',chatOpen);
-}
-
-async function sendChatMsg() {
-  const inp=document.getElementById('chat-input');
-  const txt=inp.value.trim(); if(!txt||!currentRoomId) return;
-  inp.value='';
-  const name=currentUser?(currentProfile?.username||'Üye'):guestName;
-  await supa.from('messages').insert({room_id:currentRoomId,user_id:currentUser?.id||null,guest_name:currentUser?null:name,content:txt});
-}
-
-function subscribeToChatRoom(roomId) {
-  currentRoomId=roomId;
-  if(chatSub) supa.removeChannel(chatSub);
-  chatSub=supa.channel('room-'+roomId).on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'room_id=eq.'+roomId},p=>addChatMsg(p.new)).subscribe();
-}
-
-function addChatMsg(msg) {
-  const isMe=currentUser&&msg.user_id===currentUser.id;
-  const name=msg.guest_name||(currentProfile?.username||'Üye');
-  const div=document.createElement('div');
-  div.className='chat-msg'+(isMe?' me':'');
-  div.innerHTML=`<div class="chat-msg-name ${msg.guest_name?'guest':''}">${name}</div><div class="chat-msg-text">${msg.content.replace(/</g,'&lt;')}</div>`;
-  const msgs=document.getElementById('chat-messages');
-  msgs.appendChild(div); msgs.scrollTop=msgs.scrollHeight;
-}
-
-// XP seviye sistemi
+// XP seviyeleri
 const XP_LEVELS = [
-  {level:1, name:'Acemi',      min:0},
-  {level:2, name:'Amatör',     min:200},
-  {level:3, name:'Oyuncu',     min:500},
-  {level:4, name:'Tecrübeli',  min:1000},
-  {level:5, name:'Uzman',      min:2000},
-  {level:6, name:'Usta',       min:4000},
-  {level:7, name:'Şampiyon',   min:7000},
-  {level:8, name:'Efsane',     min:12000}
+  {level:1,name:'Acemi',min:0},
+  {level:2,name:'Amatör',min:200},
+  {level:3,name:'Oyuncu',min:500},
+  {level:4,name:'Tecrübeli',min:1000},
+  {level:5,name:'Uzman',min:2000},
+  {level:6,name:'Usta',min:4000},
+  {level:7,name:'Şampiyon',min:7000},
+  {level:8,name:'Efsane',min:12000}
 ];
 
 function getLevel(xp) {
@@ -318,115 +35,268 @@ function getLevel(xp) {
 
 function getNextLevel(xp) {
   for(const l of XP_LEVELS) { if(xp < l.min) return l; }
-  return null; // Maks seviye
+  return null;
 }
 
 function getLevelBadge(level) {
-  const badges = ['','🌱','⭐','🎯','💎','🔥','👑','🏆','🌟'];
-  return badges[level] || '🌟';
+  return ['','🌱','⭐','🎯','💎','🔥','👑','🏆','🌟'][level] || '🌟';
 }
 
-// BOT OYUNU mu ONLINE OYUN mu kontrol et
 function isOnlineGame() {
-  // currentRoomId gerçek bir Supabase room ID'si ise online, local- ile başlıyorsa bot oyunu
   return currentRoomId && !currentRoomId.startsWith('local-');
 }
 
-function saveGameStats() {
+// AUTH
+function switchAuthTab(tab) {
+  document.getElementById('tab-giris').style.background = tab==='giris' ? '#e8c84a' : 'rgba(0,0,0,.3)';
+  document.getElementById('tab-giris').style.color = tab==='giris' ? '#1a1a00' : 'rgba(255,255,255,.5)';
+  document.getElementById('tab-kayit').style.background = tab==='kayit' ? '#e8c84a' : 'rgba(0,0,0,.3)';
+  document.getElementById('tab-kayit').style.color = tab==='kayit' ? '#1a1a00' : 'rgba(255,255,255,.5)';
+  document.getElementById('auth-giris').style.display = tab==='giris' ? 'block' : 'none';
+  document.getElementById('auth-kayit').style.display = tab==='kayit' ? 'block' : 'none';
+  document.getElementById('auth-error').textContent = '';
+}
+
+async function doGiris() {
+  const email = document.getElementById('giris-email').value.trim();
+  const pw = document.getElementById('giris-sifre').value;
+  if(!email||!pw) { document.getElementById('auth-error').textContent='E-posta ve şifre girin.'; return; }
+  const {data,error} = await supa.auth.signInWithPassword({email, password:pw});
+  if(error) { document.getElementById('auth-error').textContent='Hata: '+error.message; return; }
+  currentUser = data.user;
+  await loadProfile();
+  showLobby();
+}
+
+async function doKayit() {
+  const u = document.getElementById('kayit-kullanici').value.trim();
+  const email = document.getElementById('kayit-email').value.trim();
+  const pw = document.getElementById('kayit-sifre').value;
+  if(!u||!email||!pw) { document.getElementById('auth-error').textContent='Tüm alanları doldurun.'; return; }
+  if(pw.length<6) { document.getElementById('auth-error').textContent='Şifre en az 6 karakter.'; return; }
+  const {data,error} = await supa.auth.signUp({email, password:pw, options:{data:{username:u}}});
+  if(error) { document.getElementById('auth-error').textContent='Hata: '+error.message; return; }
+  currentUser = data.user;
+  await loadProfile();
+  showLobby();
+}
+
+function doMisafir() {
+  const n = prompt('Misafir adın?', 'Misafir'+Math.floor(Math.random()*1000));
+  if(!n) return;
+  guestName = n;
+  currentUser = null;
+  showLobby();
+}
+
+async function doLogout() {
+  await supa.auth.signOut();
+  currentUser = null; currentProfile = null;
+  document.getElementById('lobby').style.display = 'none';
+  document.getElementById('game').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+}
+
+async function loadProfile() {
   if(!currentUser) return;
-  // SADECE ONLİNE OYUNLARI KAYDET
-  if(!isOnlineGame()) {
-    console.log('Bot oyunu — profil kaydedilmedi.');
-    return;
+  const {data} = await supa.from('profiles').select('*').eq('id', currentUser.id).single();
+  if(data) currentProfile = data;
+}
+
+function showLobby() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('lobby').style.display = 'flex';
+  // User bar güncelle
+  const nameEl = document.getElementById('lobby-username');
+  const scoreEl = document.getElementById('lobby-score');
+  const avEl = document.getElementById('lobby-avatar');
+  const logoutBtn = document.getElementById('logout-btn');
+  if(currentUser && currentProfile) {
+    const lvl = getLevel(currentProfile.xp||0);
+    nameEl.textContent = getLevelBadge(lvl.level) + ' ' + currentProfile.username;
+    scoreEl.textContent = '⚡ ' + (currentProfile.rating||1000) + ' | Seviye ' + lvl.level + ' ' + lvl.name;
+    avEl.textContent = currentProfile.username.charAt(0).toUpperCase();
+    logoutBtn.style.display = '';
+  } else {
+    nameEl.textContent = guestName || 'Misafir';
+    scoreEl.textContent = 'Misafir — XP kazanılmaz';
+    avEl.textContent = '👤';
+    logoutBtn.style.display = 'none';
   }
-  const scores = (G && G.scores) ? G.scores : window._lastScores;
+  initLobby();
+}
+
+async function showProfile() {
+  if(!currentUser) { alert('Profil için giriş yapın.'); return; }
+  const {data} = await supa.from('profiles').select('*').eq('id', currentUser.id).single();
+  if(!data) { alert('Profil yüklenemedi.'); return; }
+  currentProfile = data;
+  const xp = data.xp||0, rating = data.rating||1000;
+  const lvl = getLevel(xp), nextLvl = getNextLevel(xp);
+  const onlineGames = data.online_games||0, onlineWins = data.online_wins||0;
+  const wr = onlineGames ? Math.round(onlineWins/onlineGames*100) : 0;
+  const xpProgress = nextLvl ? Math.round((xp-lvl.min)/(nextLvl.min-lvl.min)*100) : 100;
+  document.getElementById('profile-content').innerHTML = `
+    <div style="text-align:center;margin-bottom:14px;">
+      <div style="font-size:36px;margin-bottom:4px;">${getLevelBadge(lvl.level)}</div>
+      <div style="font-size:20px;font-weight:900;color:#e8c84a;">${data.username}</div>
+      <div style="font-size:13px;color:#aaa;margin-top:2px;">Seviye ${lvl.level} — ${lvl.name}</div>
+    </div>
+    <div style="margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:#aaa;margin-bottom:4px;">
+        <span>XP: ${xp}</span><span>${nextLvl ? nextLvl.name+' için '+nextLvl.min+' XP' : '🌟 Maks Seviye'}</span>
+      </div>
+      <div style="background:rgba(255,255,255,.1);border-radius:6px;height:8px;overflow:hidden;">
+        <div style="background:linear-gradient(90deg,#e8c84a,#ff8c00);height:100%;width:${xpProgress}%;border-radius:6px;"></div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.08);font-size:13px;color:rgba(255,255,255,.8);"><span>⚡ Rating</span><b style="color:#e8c84a;">${rating}</b></div>
+    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.08);font-size:13px;color:rgba(255,255,255,.8);"><span>🎮 Online Oyun</span><b>${onlineGames}</b></div>
+    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.08);font-size:13px;color:rgba(255,255,255,.8);"><span>🏆 Online Kazanma</span><b style="color:#88ff88;">${onlineWins}</b></div>
+    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.08);font-size:13px;color:rgba(255,255,255,.8);"><span>📊 Kazanma Oranı</span><b>${wr}%</b></div>
+    <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;color:rgba(255,255,255,.8);"><span>📅 Üyelik</span><b>${new Date(data.created_at).toLocaleDateString('tr-TR')}</b></div>
+  `;
+  document.getElementById('profile-modal').style.display = 'flex';
+}
+
+// MOD SEÇİMİ
+function pickMod(mod) {
+  gameMode = mod;
+  document.getElementById('mod-online').classList.toggle('on', mod==='online');
+  document.getElementById('mod-bot').classList.toggle('on', mod==='bot');
+}
+
+// İZLEYİCİ
+function izleMasa(masaNo) {
+  currentMasaNo = masaNo;
+  currentRoomId = 'masa-' + masaNo;
+  document.getElementById('lobby').style.display = 'none';
+  document.getElementById('game').style.display = 'flex';
+  document.getElementById('mode-badge').textContent = '👁 İzleme — Masa ' + masaNo;
+  document.getElementById('mode-badge').style.display = 'block';
+  // Istaka ve butonları gizle
+  setTimeout(() => {
+    document.querySelectorAll('.rack-outer').forEach(el => el.style.visibility='hidden');
+    document.querySelectorAll('.acts-col').forEach(el => el.style.visibility='hidden');
+  }, 100);
+  subscribeToChatRoom(currentRoomId);
+  document.getElementById('chat-toggle').style.display = 'flex';
+  setMsg('İzleme modundasın. Sohbete katılabilirsin.');
+  doResize();
+}
+
+// SOHBET
+function toggleChat() {
+  chatOpen = !chatOpen;
+  document.getElementById('chat-panel').style.transform = chatOpen ? 'translateX(0)' : 'translateX(100%)';
+}
+
+async function sendChatMsg() {
+  const inp = document.getElementById('chat-input');
+  const txt = inp.value.trim();
+  if(!txt || !currentRoomId) return;
+  inp.value = '';
+  const name = currentUser ? (currentProfile?.username||'Üye') : guestName;
+  await supa.from('messages').insert({
+    room_id: currentRoomId,
+    user_id: currentUser?.id || null,
+    guest_name: currentUser ? null : name,
+    content: txt
+  });
+}
+
+function subscribeToChatRoom(roomId) {
+  if(chatSub) supa.removeChannel(chatSub);
+  chatSub = supa.channel('chat-'+roomId)
+    .on('postgres_changes', {event:'INSERT',schema:'public',table:'messages',filter:'room_id=eq.'+roomId},
+      p => addChatMsg(p.new))
+    .subscribe();
+}
+
+function addChatMsg(msg) {
+  const isMe = currentUser && msg.user_id === currentUser.id;
+  const name = msg.guest_name || (currentProfile?.username||'Üye');
+  const div = document.createElement('div');
+  div.style.cssText = 'background:rgba(0,0,0,.3);border-radius:8px;padding:6px 9px;' + (isMe?'background:rgba(14,61,34,.6);':'');
+  div.innerHTML = `<div style="font-size:10px;font-weight:700;color:${isMe?'#88ff88':'#e8c84a'};margin-bottom:2px;">${name}</div><div style="font-size:12px;color:rgba(255,255,255,.85);word-break:break-word;">${msg.content.replace(/</g,'&lt;')}</div>`;
+  const msgs = document.getElementById('chat-messages');
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+// STATS KAYDET
+function saveGameStats() {
+  if(!currentUser || !isOnlineGame()) { console.log('Bot oyunu — kaydedilmedi'); return; }
+  const scores = window._lastScores || (G&&G.scores);
   if(!scores) return;
-  const myScore = scores[0];
-  const minScore = Math.min(...scores);
-  const isWin = myScore === minScore;
-
-  // XP hesapla
-  let xpGain = 10; // Her oyun
-  if(isWin) xpGain += 20; // Kazanma bonusu
-  // Oyunu bitiren (score=0 veya en düşük) ekstra XP
+  const myScore = scores[0], minScore = Math.min(...scores), isWin = myScore === minScore;
+  let xpGain = 10;
+  if(isWin) xpGain += 20;
   if(myScore === 0) xpGain += 15;
-
-  // Rating hesapla
   const ratingChange = isWin ? 25 : -10;
-
   supa.from('profiles').select('*').eq('id', currentUser.id).single().then(({data}) => {
     if(!data) return;
     const newXp = (data.xp||0) + xpGain;
     const newRating = Math.max(1000, (data.rating||1000) + ratingChange);
     const newLevel = getLevel(newXp).level;
     const oldLevel = getLevel(data.xp||0).level;
-
     supa.from('profiles').update({
-      online_games: (data.online_games||0) + 1,
-      online_wins: (data.online_wins||0) + (isWin ? 1 : 0),
-      total_score: (data.total_score||0) + myScore,
-      xp: newXp,
-      rating: newRating,
-      level: newLevel
+      online_games: (data.online_games||0)+1,
+      online_wins: (data.online_wins||0)+(isWin?1:0),
+      total_score: (data.total_score||0)+myScore,
+      xp: newXp, rating: newRating, level: newLevel
     }).eq('id', currentUser.id).then(() => {
-      console.log(`Profil güncellendi: XP +${xpGain}, Rating ${ratingChange>0?'+':''}${ratingChange}`);
-      // Seviye atladı mı?
+      console.log('Profil güncellendi: XP +' + xpGain + ', Rating ' + (ratingChange>0?'+':'') + ratingChange);
       if(newLevel > oldLevel) {
         const lvlInfo = getLevel(newXp);
-        spawnFloatingText(`🎉 Seviye Atladın! ${getLevelBadge(newLevel)} ${lvlInfo.name}`, '#e8c84a');
+        spawnFloatingText('🎉 Seviye Atladın! ' + getLevelBadge(newLevel) + ' ' + lvlInfo.name, '#e8c84a');
       }
     });
-
-    // Oyun geçmişi kaydet
-    supa.from('game_history').insert({
-      user_id: currentUser.id,
-      result: isWin ? 'win' : 'lose',
-      score_delta: myScore
-    });
+    supa.from('game_history').insert({user_id:currentUser.id, result:isWin?'win':'lose', score_delta:myScore});
   });
+}
+
+// LOBİYE DÖN
+function goToLobby() {
+  document.getElementById('game').style.display = 'none';
+  document.getElementById('end-wrap').classList.remove('show');
+  document.getElementById('chat-toggle').style.display = 'none';
+  document.getElementById('mode-badge').style.display = 'none';
+  chatOpen = false;
+  document.getElementById('chat-panel').style.transform = 'translateX(100%)';
+  currentRoomId = null;
+  if(chatSub) { supa.removeChannel(chatSub); chatSub = null; }
+  document.getElementById('lobby').style.display = 'flex';
+  if(currentUser) loadProfile().then(() => showLobby()); else showLobby();
 }
 
 function lobiyeDon() {
   if(confirm('Oyunu bırakmak istediğinize emin misiniz? Bu el kaydedilmeyecek.')) {
-    if(turnTimer) clearInterval(turnTimer);
+    if(typeof turnTimer !== 'undefined') clearInterval(turnTimer);
     document.getElementById('game').style.display = 'none';
+    document.getElementById('mode-badge').style.display = 'none';
     document.getElementById('chat-toggle').style.display = 'none';
     chatOpen = false;
-    document.getElementById('chat-panel').classList.remove('open');
+    document.getElementById('chat-panel').style.transform = 'translateX(100%)';
     currentRoomId = null;
-    if(currentUser) loadProfile().then(()=>showLobby()); else showLobby();
+    document.getElementById('lobby').style.display = 'flex';
+    if(currentUser) loadProfile().then(() => showLobby()); else showLobby();
   }
 }
 
-function goToLobby() {
-  if(currentUser&&G&&G.scores) {
-    const s=G.scores[0],min=Math.min(...G.scores),win=s===min;
-    supa.from('game_history').insert({user_id:currentUser.id,result:win?'win':'lose',score_delta:s});
-    supa.from('profiles').select('total_games,total_wins,total_score').eq('id',currentUser.id).single().then(({data})=>{
-      if(data) supa.from('profiles').update({total_games:(data.total_games||0)+1,total_wins:(data.total_wins||0)+(win?1:0),total_score:(data.total_score||0)+s}).eq('id',currentUser.id);
-    });
+// SAYFA YÜKLENINCE
+window.addEventListener('load', async () => {
+  const {data:{session}} = await supa.auth.getSession();
+  if(session) {
+    currentUser = session.user;
+    await loadProfile();
+    showLobby();
   }
-  document.getElementById('game').style.display='none';
-  document.getElementById('end-wrap').classList.remove('show');
-  document.getElementById('chat-toggle').style.display='none';
-  document.getElementById('mode-badge').style.display='none';
-  chatOpen=false;
-  document.getElementById('chat-panel').classList.remove('open');
-  currentRoomId=null;
-  isSpectating=false;
-  clearTimeout(disconnectTimer);
-  document.getElementById('lobby').style.display='flex';
-  if(currentUser) loadProfile().then(()=>showLobby()); else showLobby();
-}
-
-// Sayfa yüklenince session kontrol
-window.addEventListener('load',async()=>{
-  const {data:{session}}=await supa.auth.getSession();
-  if(session){currentUser=session.user;await loadProfile();showLobby();}
-  // session yoksa auth ekranı zaten görünür
+  // session yoksa auth ekranı görünür
 });
 
 </script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>81 Okey — Son El</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -600,136 +470,74 @@ body{font-family:system-ui,sans-serif;background:#062033;color:#fff;overflow:hid
 .info-divider { width: 1px; height: 26px; background: rgba(255, 255, 255, 0.2); margin: 0 4px; }
 .horizontal-pinfo .p-timer { font-size: 11px; margin-bottom: 1px; min-width: unset; }
 .horizontal-pinfo .acilis-text { font-size: 9px; color: rgba(255, 255, 255, 0.6); margin-top: 0; }
-
-/* İZLE BUTONU */
-.izle-btn{position:absolute;bottom:-22px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.7);font-size:10px;padding:3px 10px;border-radius:10px;cursor:pointer;white-space:nowrap;transition:all .15s;}
-.izle-btn:hover{background:rgba(232,200,74,.2);border-color:#e8c84a;color:#e8c84a;}
-
-/* İZLEYİCİ MOD */
-#spectator-bar{position:fixed;top:0;left:0;right:0;background:rgba(0,0,0,.85);border-bottom:2px solid #e8c84a;padding:8px 16px;display:none;align-items:center;justify-content:space-between;z-index:100;}
-#spectator-bar.show{display:flex;}
-.spec-info{font-size:12px;color:#e8c84a;font-weight:700;}
-.spec-back{padding:5px 14px;background:#e8c84a;color:#1a1a00;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;}
-
-/* OYUN MODU BADGE */
-.mode-badge{position:fixed;top:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.2);border-radius:12px;padding:3px 12px;font-size:11px;color:rgba(255,255,255,.7);z-index:10;pointer-events:none;}
-
-/* AUTH */
-#auth-screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at center,#1a4a6b,#062033);z-index:2000;padding:20px;}
-.auth-card{background:#062033;border:2px solid #e8c84a;border-radius:16px;padding:30px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.8);}
-.auth-logo{text-align:center;font-size:36px;font-weight:900;color:#e8c84a;margin-bottom:5px;letter-spacing:2px;}
-.auth-sub{text-align:center;font-size:12px;color:rgba(255,255,255,.5);margin-bottom:25px;}
-.auth-tabs{display:flex;margin-bottom:20px;border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,.1);}
-.auth-tab{flex:1;padding:8px;text-align:center;cursor:pointer;font-size:13px;font-weight:700;color:rgba(255,255,255,.5);background:rgba(0,0,0,.3);transition:all .2s;}
-.auth-tab.on{background:#e8c84a;color:#1a1a00;}
-.auth-input{width:100%;padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.4);color:#fff;font-size:14px;margin-bottom:12px;outline:none;}
-.auth-input:focus{border-color:#e8c84a;}
-.auth-btn{width:100%;padding:12px;background:#e8c84a;color:#1a1a00;border:none;border-radius:8px;font-size:15px;font-weight:800;cursor:pointer;margin-bottom:10px;}
-.auth-guest-btn{width:100%;padding:10px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.2);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;}
-.auth-guest-btn:hover{background:rgba(255,255,255,.15);color:#fff;}
-.auth-error{color:#ff6666;font-size:12px;text-align:center;margin-bottom:8px;min-height:16px;}
-.auth-divider{display:flex;align-items:center;gap:10px;margin:12px 0;color:rgba(255,255,255,.3);font-size:12px;}
-.auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.15);}
-/* USER BAR */
-.user-bar{display:flex;align-items:center;gap:10px;}
-.user-avatar-sm{width:32px;height:32px;border-radius:50%;background:#1a4a6b;border:2px solid #e8c84a;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;color:#e8c84a;}
-.user-name-sm{font-size:13px;font-weight:700;color:#fff;}
-.user-score-sm{font-size:11px;color:rgba(255,255,255,.5);}
-.lobby-btn{padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;border:1px solid;}
-.btn-profil{background:rgba(232,200,74,.15);border-color:rgba(232,200,74,.5);color:#e8c84a;}
-.btn-cikis{background:rgba(255,0,0,.15);border-color:rgba(255,0,0,.3);color:#ff8888;}
-/* SOHBET */
-#chat-panel{position:fixed;right:0;top:0;bottom:0;width:260px;background:#071e2e;border-left:1px solid rgba(255,255,255,.1);display:flex;flex-direction:column;z-index:50;transform:translateX(100%);transition:transform .3s;}
-#chat-panel.open{transform:translateX(0);}
-.chat-header{padding:10px 14px;background:#0a2b42;border-bottom:1px solid rgba(255,255,255,.1);display:flex;justify-content:space-between;align-items:center;}
-.chat-header span{font-size:13px;font-weight:700;color:#e8c84a;}
-.chat-close{background:none;border:none;color:rgba(255,255,255,.5);font-size:20px;cursor:pointer;}
-.chat-messages{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:6px;}
-.chat-msg{background:rgba(0,0,0,.3);border-radius:8px;padding:6px 9px;}
-.chat-msg-name{font-size:10px;font-weight:700;color:#e8c84a;margin-bottom:2px;}
-.chat-msg-name.guest{color:#88ccff;}
-.chat-msg-text{font-size:12px;color:rgba(255,255,255,.85);word-break:break-word;}
-.chat-msg.me{background:rgba(14,61,34,.6);}
-.chat-msg.me .chat-msg-name{color:#88ff88;}
-.chat-input-row{padding:10px;border-top:1px solid rgba(255,255,255,.1);display:flex;gap:6px;}
-.chat-input{flex:1;padding:7px 10px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:12px;outline:none;}
-.chat-send{padding:7px 12px;background:#e8c84a;color:#1a1a00;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;}
-#chat-toggle{position:fixed;right:10px;bottom:120px;z-index:60;width:44px;height:44px;border-radius:50%;background:#e8c84a;color:#1a1a00;border:none;font-size:20px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;}
-/* PROFİL */
-#profile-modal{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:3000;align-items:center;justify-content:center;display:none;}
-#profile-modal.show{display:flex;}
-.profile-card{background:#062033;border:2px solid #e8c84a;border-radius:16px;padding:24px;max-width:420px;width:90%;}
-.profile-card h2{color:#e8c84a;font-size:18px;margin-bottom:16px;text-align:center;}
-.profile-stat{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.08);font-size:13px;color:rgba(255,255,255,.8);}
-.profile-stat b{color:#e8c84a;}
 </style>
 </head>
 <body>
 <div id="ghost"></div>
-<div id="spectator-bar">
-  <div class="spec-info">👁 İzleme Modu — Masa <span id="spec-masa-no">?</span></div>
-  <div style="display:flex;align-items:center;gap:10px;">
-    <span style="font-size:11px;color:rgba(255,255,255,.5);">Sohbete katılabilirsin</span>
-    <button class="spec-back" onclick="stopSpectating()">← Lobiye Dön</button>
-  </div>
-</div>
-<div id="mode-badge" class="mode-badge" style="display:none;"></div>
+<div id="mode-badge" style="position:fixed;top:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.2);border-radius:12px;padding:3px 12px;font-size:11px;color:rgba(255,255,255,.7);z-index:10;pointer-events:none;display:none;"></div>
 
-<div id="auth-screen">
-  <div class="auth-card">
-    <div class="auth-logo">81 OKEY</div>
-    <div class="auth-sub">Türkiye'nin En İyi Okey Deneyimi</div>
-    <div class="auth-tabs">
-      <div class="auth-tab on" onclick="switchAuthTab('giris')">Giriş Yap</div>
-      <div class="auth-tab" onclick="switchAuthTab('kayit')">Üye Ol</div>
+<!-- AUTH EKRANI -->
+<div id="auth-screen" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at center,#1a4a6b,#062033);z-index:2000;padding:20px;">
+  <div style="background:#062033;border:2px solid #e8c84a;border-radius:16px;padding:30px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.8);">
+    <div style="text-align:center;font-size:36px;font-weight:900;color:#e8c84a;margin-bottom:5px;letter-spacing:2px;">81 OKEY</div>
+    <div style="text-align:center;font-size:12px;color:rgba(255,255,255,.5);margin-bottom:20px;">Türkiye'nin En İyi Okey Deneyimi</div>
+    <div style="display:flex;margin-bottom:16px;border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,.1);">
+      <div id="tab-giris" style="flex:1;padding:8px;text-align:center;cursor:pointer;font-size:13px;font-weight:700;background:#e8c84a;color:#1a1a00;" onclick="switchAuthTab('giris')">Giriş Yap</div>
+      <div id="tab-kayit" style="flex:1;padding:8px;text-align:center;cursor:pointer;font-size:13px;font-weight:700;background:rgba(0,0,0,.3);color:rgba(255,255,255,.5);" onclick="switchAuthTab('kayit')">Üye Ol</div>
     </div>
-    <div id="auth-error" class="auth-error"></div>
+    <div id="auth-error" style="color:#ff6666;font-size:12px;text-align:center;margin-bottom:8px;min-height:16px;"></div>
     <div id="auth-giris">
-      <input class="auth-input" id="giris-email" type="email" placeholder="E-posta adresi">
-      <input class="auth-input" id="giris-sifre" type="password" placeholder="Şifre">
-      <button class="auth-btn" onclick="doGiris()">Giriş Yap</button>
+      <input id="giris-email" type="email" placeholder="E-posta adresi" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.4);color:#fff;font-size:14px;margin-bottom:12px;outline:none;box-sizing:border-box;">
+      <input id="giris-sifre" type="password" placeholder="Şifre" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.4);color:#fff;font-size:14px;margin-bottom:12px;outline:none;box-sizing:border-box;">
+      <button onclick="doGiris()" style="width:100%;padding:12px;background:#e8c84a;color:#1a1a00;border:none;border-radius:8px;font-size:15px;font-weight:800;cursor:pointer;margin-bottom:10px;">Giriş Yap</button>
     </div>
     <div id="auth-kayit" style="display:none;">
-      <input class="auth-input" id="kayit-kullanici" type="text" placeholder="Kullanıcı adı">
-      <input class="auth-input" id="kayit-email" type="email" placeholder="E-posta adresi">
-      <input class="auth-input" id="kayit-sifre" type="password" placeholder="Şifre (min 6 karakter)">
-      <button class="auth-btn" onclick="doKayit()">Üye Ol</button>
+      <input id="kayit-kullanici" type="text" placeholder="Kullanıcı adı" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.4);color:#fff;font-size:14px;margin-bottom:12px;outline:none;box-sizing:border-box;">
+      <input id="kayit-email" type="email" placeholder="E-posta adresi" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.4);color:#fff;font-size:14px;margin-bottom:12px;outline:none;box-sizing:border-box;">
+      <input id="kayit-sifre" type="password" placeholder="Şifre (min 6 karakter)" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.4);color:#fff;font-size:14px;margin-bottom:12px;outline:none;box-sizing:border-box;">
+      <button onclick="doKayit()" style="width:100%;padding:12px;background:#e8c84a;color:#1a1a00;border:none;border-radius:8px;font-size:15px;font-weight:800;cursor:pointer;margin-bottom:10px;">Üye Ol</button>
     </div>
-    <div class="auth-divider">veya</div>
-    <button class="auth-guest-btn" onclick="doMisafir()">👤 Misafir Olarak Devam Et</button>
+    <div style="display:flex;align-items:center;gap:10px;margin:12px 0;color:rgba(255,255,255,.3);font-size:12px;">
+      <div style="flex:1;height:1px;background:rgba(255,255,255,.15);"></div>veya<div style="flex:1;height:1px;background:rgba(255,255,255,.15);"></div>
+    </div>
+    <button onclick="doMisafir()" style="width:100%;padding:10px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.2);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">👤 Misafir Olarak Devam Et</button>
   </div>
 </div>
 
-<div id="profile-modal">
-  <div class="profile-card">
-    <h2>👤 Profilim</h2>
+<!-- PROFİL MODAL -->
+<div id="profile-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:3000;align-items:center;justify-content:center;">
+  <div style="background:#062033;border:2px solid #e8c84a;border-radius:16px;padding:24px;max-width:420px;width:90%;">
+    <h2 style="color:#e8c84a;font-size:18px;margin-bottom:16px;text-align:center;">👤 Profilim</h2>
     <div id="profile-content"></div>
-    <button class="auth-btn" style="margin-top:16px;" onclick="document.getElementById('profile-modal').classList.remove('show')">Kapat</button>
+    <button onclick="document.getElementById('profile-modal').style.display='none'" style="width:100%;padding:12px;background:#e8c84a;color:#1a1a00;border:none;border-radius:8px;font-size:14px;font-weight:800;cursor:pointer;margin-top:16px;">Kapat</button>
   </div>
 </div>
 
-<div id="chat-panel">
-  <div class="chat-header"><span>💬 Sohbet</span><button class="chat-close" onclick="toggleChat()">×</button></div>
-  <div class="chat-messages" id="chat-messages"></div>
-  <div class="chat-input-row">
-    <input class="chat-input" id="chat-input" placeholder="Mesaj yaz..." onkeydown="if(event.key==='Enter')sendChatMsg()">
-    <button class="chat-send" onclick="sendChatMsg()">Gönder</button>
+<!-- SOHBET -->
+<div id="chat-panel" style="position:fixed;right:0;top:0;bottom:0;width:260px;background:#071e2e;border-left:1px solid rgba(255,255,255,.1);display:flex;flex-direction:column;z-index:50;transform:translateX(100%);transition:transform .3s;">
+  <div style="padding:10px 14px;background:#0a2b42;border-bottom:1px solid rgba(255,255,255,.1);display:flex;justify-content:space-between;align-items:center;">
+    <span style="font-size:13px;font-weight:700;color:#e8c84a;">💬 Sohbet</span>
+    <button onclick="toggleChat()" style="background:none;border:none;color:rgba(255,255,255,.5);font-size:20px;cursor:pointer;line-height:1;">×</button>
+  </div>
+  <div id="chat-messages" style="flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:6px;"></div>
+  <div style="padding:10px;border-top:1px solid rgba(255,255,255,.1);display:flex;gap:6px;">
+    <input id="chat-input" placeholder="Mesaj yaz..." onkeydown="if(event.key==='Enter')sendChatMsg()" style="flex:1;padding:7px 10px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:12px;outline:none;">
+    <button onclick="sendChatMsg()" style="padding:7px 12px;background:#e8c84a;color:#1a1a00;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">Gönder</button>
   </div>
 </div>
-<button id="chat-toggle" onclick="toggleChat()">💬</button>
-
+<button id="chat-toggle" onclick="toggleChat()" style="position:fixed;right:10px;bottom:120px;z-index:60;width:44px;height:44px;border-radius:50%;background:#e8c84a;color:#1a1a00;border:none;font-size:20px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;">💬</button>
 
 <div id="lobby">
   <div class="lobby-header">
       <div class="lobby-title">81 OKEY LOBİSİ</div>
-      <div class="user-bar">
-        <div class="user-avatar-sm" id="lobby-avatar">?</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div id="lobby-avatar" style="width:32px;height:32px;border-radius:50%;background:#1a4a6b;border:2px solid #e8c84a;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;color:#e8c84a;">?</div>
         <div>
-          <div class="user-name-sm" id="lobby-username">...</div>
-          <div class="user-score-sm" id="lobby-score"></div>
+          <div id="lobby-username" style="font-size:13px;font-weight:700;color:#fff;">...</div>
+          <div id="lobby-score" style="font-size:11px;color:rgba(255,255,255,.5);"></div>
         </div>
-        <button class="lobby-btn btn-profil" onclick="showProfile()">Profil</button>
-        <button class="lobby-btn btn-cikis" id="logout-btn" onclick="doLogout()">Çıkış</button>
+        <button onclick="showProfile()" style="padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;border:1px solid rgba(232,200,74,.5);background:rgba(232,200,74,.15);color:#e8c84a;">Profil</button>
+        <button id="logout-btn" onclick="doLogout()" style="padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;border:1px solid rgba(255,0,0,.3);background:rgba(255,0,0,.15);color:#ff8888;">Çıkış</button>
       </div>
   </div>
   <div class="tables-grid" id="tables-grid">
@@ -740,16 +548,12 @@ body{font-family:system-ui,sans-serif;background:#062033;color:#fff;overflow:hid
   <div class="setup-modal">
     <button class="close-modal-btn" onclick="closeSetup()">&times;</button>
     <div class="s-title">Masaya Otur & Oyunu Kur</div>
-    
-    <!-- OYUN MODU -->
-    <div style="display:flex;gap:8px;margin-bottom:10px;">
-      <button class="cb on" id="mod-online" data-v="online" onclick="pickMod('online')" style="flex:1;padding:10px;font-size:13px;">
-        🌐 Çevrimiçi
-        <div style="font-size:10px;font-weight:400;margin-top:2px;opacity:.7;">Gerçek oyuncular • XP & Rating kazanırsın</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button class="cb on" id="mod-online" onclick="pickMod('online')" style="flex:1;padding:10px;font-size:13px;text-align:left;">
+        🌐 <b>Çevrimiçi</b><br><span style="font-size:10px;font-weight:400;opacity:.7;">Gerçek oyuncular • XP & Rating kazanırsın</span>
       </button>
-      <button class="cb" id="mod-bot" data-v="bot" onclick="pickMod('bot')" style="flex:1;padding:10px;font-size:13px;">
-        🤖 Tek Başına
-        <div style="font-size:10px;font-weight:400;margin-top:2px;opacity:.7;">3 bot ile • XP kazanılmaz</div>
+      <button class="cb" id="mod-bot" onclick="pickMod('bot')" style="flex:1;padding:10px;font-size:13px;text-align:left;">
+        🤖 <b>Tek Başına</b><br><span style="font-size:10px;font-weight:400;opacity:.7;">3 bot ile oyna • XP kazanılmaz</span>
       </button>
     </div>
     
@@ -935,7 +739,7 @@ body{font-family:system-ui,sans-serif;background:#062033;color:#fff;overflow:hid
                 <button class="btn btn-mode" id="btn-cift" onclick="doSort('cift')">Çift</button>
                 <button class="btn btn-mode" id="btn-cifte-git" onclick="doCifteGit()" style="background:#800080;border-color:#a020a0;color:#fff;">Çifte Git</button>
                 <button class="btn" id="geri-al-btn" onclick="doGeriAl()" style="background:#5a0000;border-color:#cc2200;color:#ffaaaa;display:none">Geri Al (+81)</button>
-                <button class="btn" onclick="lobiyeDon()" style="background:#1a3a6a;border-color:#3366cc;color:#aaccff;">🚪 Lobiye Dön</button>
+                <button class="btn" onclick="lobiyeDon()" style="background:#1a3a6a;border-color:#3366cc;color:#aaccff;font-size:11px;">🚪 Lobiye</button>
             </div>
 
             <div class="rack-outer">
@@ -979,10 +783,10 @@ body{font-family:system-ui,sans-serif;background:#062033;color:#fff;overflow:hid
   </div>
   <div class="end-wrap" id="end-wrap">
     <div class="end-card">
-      <div style="font-size:52px;margin-bottom:10px" id="end-icon">🏆</div>
-      <h2 id="end-title" style="font-size:28px;margin-bottom:8px;">—</h2>
-      <div id="end-scores" style="background:rgba(0,0,0,.3);border-radius:10px;padding:12px;margin-bottom:12px;font-size:13px;line-height:2;text-align:left;"></div>
-      <p id="end-text" style="font-size:12px;margin-bottom:14px;color:rgba(255,255,255,.6);">—</p>
+      <div style="font-size:52px;margin-bottom:8px" id="end-icon">🏆</div>
+      <h2 id="end-title" style="font-size:26px;margin-bottom:8px;">—</h2>
+      <div id="end-scores" style="background:rgba(0,0,0,.3);border-radius:10px;padding:12px;margin-bottom:12px;font-size:13px;line-height:2;text-align:left;min-width:280px;"></div>
+      <p id="end-text" style="font-size:11px;margin-bottom:12px;color:rgba(255,255,255,.5);">—</p>
       <button class="btn-new" onclick="goToLobby()">🏠 Lobiye Dön</button>
     </div>
   </div>
@@ -995,7 +799,7 @@ function initLobby() {
     for(let i=1; i<=40; i++) {
         // Rastgele izleyiciler/oyuncular (görsellik katmak için eklenebilir ama şu an sade tutuldu)
         grid.innerHTML += `
-            <div class="masa-wrapper" style="position:relative;padding-bottom:28px;">
+            <div class="masa-wrapper">
                 <div class="masa-board">
                     <span>Masa ${i}</span>
                     <small>10.000 🪙</small>
@@ -1004,14 +808,20 @@ function initLobby() {
                 <div class="oyna-btn seat-bottom" onclick="openSetup(${i})">OYNA</div>
                 <div class="oyna-btn seat-left" onclick="openSetup(${i})">OYNA</div>
                 <div class="oyna-btn seat-right" onclick="openSetup(${i})">OYNA</div>
-                <div class="izle-btn" onclick="izleMasa(${i})">👁 İzle</div>
+                <div style="position:absolute;bottom:-22px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.7);font-size:10px;padding:3px 10px;border-radius:10px;cursor:pointer;white-space:nowrap;" onclick="izleMasa(${i})">👁 İzle</div>
             </div>
         `;
     }
 }
 // Sayfa yüklenince lobiyi oluştur
-// initLobby auth sonrası çağrılıyor
+// initLobby auth sonrası
 
+function openSetup(masaNo) {
+    currentMasaNo = masaNo || 1;
+    if(currentUser && currentProfile) document.getElementById('pname').value = currentProfile.username;
+    else if(guestName) document.getElementById('pname').value = guestName;
+    document.getElementById('setup').style.display = 'flex';
+}
 function closeSetup() {
     document.getElementById('setup').style.display = 'none';
 }
@@ -1127,21 +937,16 @@ function startGame(){
   
   doResize(); setTimeout(doResize, 50);
   document.getElementById('disc-player').addEventListener('click',()=>{if(G.turn===0&&G.phase==='discard'&&G.sel) doDiscard(G.sel);});
-  
-  // Online veya bot mod
   if(gameMode === 'online' && currentUser) {
-    currentRoomId = 'masa-' + (currentMasaNo || 1);
-    const badge = document.getElementById('mode-badge');
-    badge.textContent = '🌐 Çevrimiçi — Masa ' + (currentMasaNo||1);
-    badge.style.display = 'block';
+    currentRoomId = 'masa-' + (currentMasaNo||1);
+    document.getElementById('mode-badge').textContent = '🌐 Çevrimiçi — Masa ' + (currentMasaNo||1);
+    document.getElementById('mode-badge').style.display = 'block';
     subscribeToChatRoom(currentRoomId);
     document.getElementById('chat-toggle').style.display = 'flex';
   } else {
-    // Bot modu - local ID
     currentRoomId = 'local-' + Date.now();
-    const badge = document.getElementById('mode-badge');
-    badge.textContent = '🤖 Tek Başına Oyun — XP Kazanılmaz';
-    badge.style.display = 'block';
+    document.getElementById('mode-badge').textContent = '🤖 Tek Başına — XP Kazanılmaz';
+    document.getElementById('mode-badge').style.display = 'block';
   }
   deal();
 }
@@ -1875,20 +1680,14 @@ function nextEl(){
       document.getElementById('end-icon').textContent=icon;
       document.getElementById('end-title').textContent=winText;
       document.getElementById('end-text').textContent='Tüm eller tamamlandı.';
-      // Skorları sakla (saveGameStats için)
-      window._lastScores = [...G.scores];
-      // Skor tablosu
-      const scoresHtml = G.scores.map((s,i)=>{
-        const isMe = i===0;
-        const isWinner = s===Math.min(...G.scores);
-        return `<div style="display:flex;justify-content:space-between;padding:3px 0;${isMe?'color:#e8c84a;font-weight:700;':''}${isWinner?'color:#88ff88;':''}">
-          <span>${isWinner?'🏆 ':''}${G.names[i]}${isMe?' (Sen)':''}</span>
-          <span>${s} Puan</span>
-        </div>`;
-      }).join('');
-      document.getElementById('end-scores').innerHTML = scoresHtml;
+      if(document.getElementById('end-scores')) {
+        window._lastScores = [...G.scores];
+        document.getElementById('end-scores').innerHTML = G.scores.map((s,i)=>{
+          const isMe=i===0, isWin=s===Math.min(...G.scores);
+          return '<div style="display:flex;justify-content:space-between;padding:2px 0;'+(isMe?'color:#e8c84a;font-weight:700;':'')+(isWin?'color:#88ff88;':'')+'"><span>'+(isWin?'🏆 ':'')+G.names[i]+(isMe?' (Sen)':'')+'</span><span>'+s+' Puan</span></div>';
+        }).join('');
+      }
       document.getElementById('end-wrap').classList.add('show');
-      // Veriyi otomatik kaydet
       saveGameStats();
       return; 
   }
