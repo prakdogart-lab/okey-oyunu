@@ -125,6 +125,37 @@ function addChatMsg(msg) {
   msgs.appendChild(div); msgs.scrollTop=msgs.scrollHeight;
 }
 
+function saveGameStats() {
+  if(!currentUser || !G || !G.scores) return;
+  const myScore = G.scores[0];
+  const minScore = Math.min(...G.scores);
+  const isWin = myScore === minScore;
+  supa.from('game_history').insert({
+    user_id: currentUser.id,
+    result: isWin ? 'win' : 'lose',
+    score_delta: myScore
+  });
+  supa.from('profiles').select('total_games,total_wins,total_score').eq('id',currentUser.id).single().then(({data})=>{
+    if(data) supa.from('profiles').update({
+      total_games: (data.total_games||0) + 1,
+      total_wins: (data.total_wins||0) + (isWin ? 1 : 0),
+      total_score: (data.total_score||0) + myScore
+    }).eq('id', currentUser.id);
+  });
+}
+
+function lobiyeDon() {
+  if(confirm('Oyunu bırakmak istediğinize emin misiniz? Bu el kaydedilmeyecek.')) {
+    if(turnTimer) clearInterval(turnTimer);
+    document.getElementById('game').style.display = 'none';
+    document.getElementById('chat-toggle').style.display = 'none';
+    chatOpen = false;
+    document.getElementById('chat-panel').classList.remove('open');
+    currentRoomId = null;
+    if(currentUser) loadProfile().then(()=>showLobby()); else showLobby();
+  }
+}
+
 function goToLobby() {
   if(currentUser&&G&&G.scores) {
     const s=G.scores[0],min=Math.min(...G.scores),win=s===min;
@@ -626,6 +657,7 @@ body{font-family:system-ui,sans-serif;background:#062033;color:#fff;overflow:hid
                 <button class="btn btn-mode" id="btn-cift" onclick="doSort('cift')">Çift</button>
                 <button class="btn btn-mode" id="btn-cifte-git" onclick="doCifteGit()" style="background:#800080;border-color:#a020a0;color:#fff;">Çifte Git</button>
                 <button class="btn" id="geri-al-btn" onclick="doGeriAl()" style="background:#5a0000;border-color:#cc2200;color:#ffaaaa;display:none">Geri Al (+81)</button>
+                <button class="btn" onclick="lobiyeDon()" style="background:#1a3a6a;border-color:#3366cc;color:#aaccff;">🚪 Lobiye Dön</button>
             </div>
 
             <div class="rack-outer">
@@ -668,7 +700,13 @@ body{font-family:system-ui,sans-serif;background:#062033;color:#fff;overflow:hid
         </div>
   </div>
   <div class="end-wrap" id="end-wrap">
-    <div class="end-card"><div style="font-size:40px;margin-bottom:6px" id="end-icon">🏆</div><h2 id="end-title">—</h2><p id="end-text" style="font-size:11px;margin-bottom:10px;">—</p><button class="btn-new" onclick="goToLobby()">Yeni Oyun / Lobiye Dön</button></div>
+    <div class="end-card">
+      <div style="font-size:52px;margin-bottom:10px" id="end-icon">🏆</div>
+      <h2 id="end-title" style="font-size:28px;margin-bottom:8px;">—</h2>
+      <div id="end-scores" style="background:rgba(0,0,0,.3);border-radius:10px;padding:12px;margin-bottom:12px;font-size:13px;line-height:2;text-align:left;"></div>
+      <p id="end-text" style="font-size:12px;margin-bottom:14px;color:rgba(255,255,255,.6);">—</p>
+      <button class="btn-new" onclick="goToLobby()">🏠 Lobiye Dön</button>
+    </div>
   </div>
  </div></div>
 <script>
@@ -1544,7 +1582,23 @@ function nextEl(){
           const sorted=[...G.scores.map((s,i)=>({s,i}))].sort((a,b)=>a.s-b.s), winner=sorted[0];
           icon=winner.i===0?'🏆':'😢'; winText=winner.i===0?'Kazandın!':G.names[winner.i]+' Kazandı!'; txt=G.scores.map((s,i)=>G.names[i]+': '+s+' Puan').join('\n');
       }
-      document.getElementById('end-icon').textContent=icon; document.getElementById('end-title').textContent=winText; document.getElementById('end-text').textContent='Oyun bitti!\n\n'+txt; document.getElementById('end-wrap').classList.add('show'); return; 
+      document.getElementById('end-icon').textContent=icon;
+      document.getElementById('end-title').textContent=winText;
+      document.getElementById('end-text').textContent='Tüm eller tamamlandı.';
+      // Skor tablosu
+      const scoresHtml = G.scores.map((s,i)=>{
+        const isMe = i===0;
+        const isWinner = s===Math.min(...G.scores);
+        return `<div style="display:flex;justify-content:space-between;padding:3px 0;${isMe?'color:#e8c84a;font-weight:700;':''}${isWinner?'color:#88ff88;':''}">
+          <span>${isWinner?'🏆 ':''}${G.names[i]}${isMe?' (Sen)':''}</span>
+          <span>${s} Puan</span>
+        </div>`;
+      }).join('');
+      document.getElementById('end-scores').innerHTML = scoresHtml;
+      document.getElementById('end-wrap').classList.add('show');
+      // Veriyi otomatik kaydet
+      saveGameStats();
+      return; 
   }
   G.curEl++; deal();
 }
