@@ -116,7 +116,9 @@ function handleRoomUpdate(room) {
   
   // Oyun başladı ve seed var
   if(room.status === 'playing' && room.game_state && room.game_state.seed) {
-    if(!G.deck || G.deck.length === 0) {
+    const deckEmpty = !G.deck || G.deck.length === 0;
+    const notStarted = !G.gosterge;
+    if(deckEmpty || notStarted) {
       hideWaitingScreen();
       G.names = names;
       names.forEach((n,i) => {
@@ -288,7 +290,19 @@ async function startMultiplayerGame(masaNo, settings) {
       dealWithSeed(seed, realNames);
     } else if(room.status === 'playing') {
       clearInterval(checkInterval);
-      // handleRoomUpdate zaten tetiklenecek
+      // Oyun zaten başlamış - seed ile başlat
+      const {data: latestRoom} = await supa.from('rooms').select('*').eq('id', myRoomId).single();
+      if(latestRoom && latestRoom.game_state && latestRoom.game_state.seed) {
+        const rNames = [latestRoom.seat0_name, latestRoom.seat1_name, latestRoom.seat2_name, latestRoom.seat3_name]
+          .map((n,i) => n || ('Oyuncu '+(i+1)));
+        hideWaitingScreen();
+        G.names = rNames;
+        rNames.forEach((n,i) => {
+          const el = document.getElementById('n'+i); if(el) el.textContent = n;
+          const sc = document.getElementById('sc-n'+i); if(sc) sc.textContent = n+':';
+        });
+        dealWithSeed(latestRoom.game_state.seed, rNames);
+      }
     }
   }, 1000);
   
