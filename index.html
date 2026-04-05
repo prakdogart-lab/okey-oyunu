@@ -103,9 +103,7 @@ function handleRoomUpdate(room) {
   // Kendi koltuğum boşaltıldı mı? (admin tarafından atıldım)
   if(isMultiplayer && mySeat >= 0) {
     const myCurrentSeat = room['seat' + mySeat + '_user'];
-    // Kalıcı misafir ID'sini al
     const myId = currentUser ? currentUser.id : localStorage.getItem('81okey_guest_id');
-    // Koltuk boşaldı VE ben burada değilim
     if(myCurrentSeat === null && myId) {
       if(typeof turnTimer !== 'undefined') clearInterval(turnTimer);
       alert('Masadan çıkarıldınız!');
@@ -114,11 +112,12 @@ function handleRoomUpdate(room) {
     }
   }
   
-  // Oyun başladı ve seed var
-  if(room.status === 'playing' && room.game_state && room.game_state.seed) {
+  if(room.status === 'playing' && room.game_state) {
     const deckEmpty = !G.deck || G.deck.length === 0;
     const notStarted = !G.gosterge;
-    if(deckEmpty || notStarted) {
+    
+    // Oyun yeni başlıyorsa taşları dağıt
+    if((deckEmpty || notStarted) && room.game_state.seed) {
       hideWaitingScreen();
       G.names = names;
       names.forEach((n,i) => {
@@ -127,9 +126,13 @@ function handleRoomUpdate(room) {
       });
       dealWithSeed(room.game_state.seed, names);
     }
+    
+    // Dağıtımdan sonra veya oyun devam ederken güncel durumu yükle
+    if (room.game_state.globalTurn !== undefined) {
+        loadGameState(room.game_state);
+    }
   }
   
-  // Status 'finished' - oyun bitti
   if(room.status === 'finished') {
     if(typeof turnTimer !== 'undefined') clearInterval(turnTimer);
     setMsg('Oyun sona erdi.');
@@ -145,7 +148,6 @@ function updateSeatDisplay(room) {
     room.seat3_name || '— Boş —'
   ];
   
-  // Bot değilse gerçek oyuncu adını göster
   for(let i = 1; i < 4; i++) {
     const nameEl = document.getElementById('n' + i);
     if(nameEl && names[i] && names[i] !== '— Boş —') {
@@ -154,30 +156,41 @@ function updateSeatDisplay(room) {
   }
 }
 
-// Game state'i Supabase'e kaydet (sadece sıra bende ise)
+// Game state'i Supabase'e kaydet (Lokal yapıyı Globale çevirerek)
 async function saveGameState() {
   if(!isMultiplayer || !myRoomId) return;
   
+  let hands = {}, discards = {}, acildiGlobal = {}, cifteGlobal = {}, acilisDegeriGlobal = {}, scoresGlobal = {};
+  for(let i=0; i<4; i++) {
+      const globalSeat = (mySeat + i) % 4;
+      hands[globalSeat] = i === 0 ? getHand() : G.opp[i-1];
+      discards[globalSeat] = i === 0 ? G.playerDisc : G.oppDisc[i-1];
+      acildiGlobal[globalSeat] = G.acildi[i];
+      cifteGlobal[globalSeat] = G.cifteGidiyor[i];
+      acilisDegeriGlobal[globalSeat] = G.acilisDegeri[i];
+      scoresGlobal[globalSeat] = G.scores[i];
+  }
+
   const state = {
-    grid: G.grid,
-    opp: G.opp,
-    deck_count: G.deck.length,
-    disc: G.disc,
-    turn: G.turn,
-    phase: G.phase,
-    scores: G.scores,
+    deck: G.deck,
+    hands: hands,
+    discards: discards,
     tableGroups: G.tableGroups,
-    acildi: G.acildi,
-    okey: G.okey,
+    acildi: acildiGlobal,
+    cifteGidiyor: cifteGlobal,
+    acilisDegeri: acilisDegeriGlobal,
+    scoresGlobal: scoresGlobal,
+    globalTurn: (G.turn + mySeat) % 4, // Sıradaki oyuncunun global koltuğu
+    phase: G.phase,
     gosterge: G.gosterge,
-    names: G.names,
+    okey: G.okey,
     last_action: Date.now(),
-    last_seat: mySeat
+    last_seat: mySeat // Yankıları yoksaymak için
   };
   
   await supa.from('rooms').update({
     game_state: state,
-    current_turn: G.turn
+    current_turn: state.globalTurn
   }).eq('id', myRoomId);
 }
 
@@ -218,13 +231,11 @@ let lastMasaNo = null; // Son çıkılan masa
 async function leaveRoom() {
   if(!myRoomId || mySeat < 0) return;
   
-  // Koltuktan çık
   const update = {};
   update['seat' + mySeat + '_user'] = null;
   update['seat' + mySeat + '_name'] = null;
   await supa.from('rooms').update(update).eq('id', myRoomId);
   
-  // Son masayı kaydet
   lastMasaNo = currentMasaNo;
   
   myRoomId = null; mySeat = -1; isMultiplayer = false;
@@ -234,7 +245,6 @@ async function leaveRoom() {
   window.close();
 }
 
-// Oyun başlatma - çok oyunculu mod
 let isMasaKurucu = false;
 
 async function startMultiplayerGame(masaNo, settings) {
@@ -251,7 +261,6 @@ async function startMultiplayerGame(masaNo, settings) {
   showWaitingScreen(masaNo, 1);
   doResize();
   
-  // Oda değişikliklerini izle - sadece bekleme ekranını güncelle
   const checkInterval = setInterval(async () => {
     const {data: room} = await supa.from('rooms').select('*').eq('id', myRoomId).single();
     if(!room) { clearInterval(checkInterval); return; }
@@ -260,7 +269,6 @@ async function startMultiplayerGame(masaNo, settings) {
     const names = [room.seat0_name, room.seat1_name, room.seat2_name, room.seat3_name];
     const filledCount = seats.filter(s => s).length;
     
-    // Koltuk göstergelerini güncelle
     seats.forEach((s, i) => {
       const ind = document.getElementById('seat-ind-' + i);
       if(ind && s) {
@@ -271,8 +279,6 @@ async function startMultiplayerGame(masaNo, settings) {
     });
     
     if(filledCount === 4 && mySeat === 0 && room.status !== 'playing') {
-      // Seat 0: oyunu başlat - seed üret ve Supabase'e yaz
-      // handleRoomUpdate diğerlerini tetikleyecek
       clearInterval(checkInterval);
       const realNames = names.map((n,i) => n || ('Oyuncu '+(i+1)));
       const seed = Date.now();
@@ -280,7 +286,6 @@ async function startMultiplayerGame(masaNo, settings) {
         status: 'playing',
         game_state: {seed: seed, started: true, names: realNames}
       }).eq('id', myRoomId);
-      // Seat 0 kendi dealWithSeed'ini çağırır
       hideWaitingScreen();
       G.names = realNames;
       realNames.forEach((n,i) => {
@@ -290,7 +295,6 @@ async function startMultiplayerGame(masaNo, settings) {
       dealWithSeed(seed, realNames);
     } else if(room.status === 'playing') {
       clearInterval(checkInterval);
-      // Oyun zaten başlamış - seed ile başlat
       const {data: latestRoom} = await supa.from('rooms').select('*').eq('id', myRoomId).single();
       if(latestRoom && latestRoom.game_state && latestRoom.game_state.seed) {
         const rNames = [latestRoom.seat0_name, latestRoom.seat1_name, latestRoom.seat2_name, latestRoom.seat3_name]
@@ -322,7 +326,6 @@ function dealWithSeed(seed, names) {
     });
   }
   
-  // Seed ile shuffle
   function seededRandom(seed) {
     let s = seed;
     return function() {
@@ -343,7 +346,6 @@ function dealWithSeed(seed, names) {
   const rng = seededRandom(seed);
   const deck = seededShuffle(makeDeck(), rng);
   
-  // Gösterge
   let gostIdx;
   do { gostIdx = Math.floor(rng() * deck.length); } while(deck[gostIdx].jok);
   const gosterge = deck.splice(gostIdx, 1)[0];
@@ -352,15 +354,12 @@ function dealWithSeed(seed, names) {
   deck.unshift(gosterge);
   deck.forEach(t => { if(t.jok) { t.c = G.okey.c; t.n = G.okey.n; } });
   
-  // Taşları dağıt - seat numarasına göre hangi taşların bende olduğunu belirle
-  // Sıra: seat0 (15 taş), seat1 (14), seat2 (14), seat3 (14)
-  const allTiles = deck.slice(); // Gösterge hariç
+  const allTiles = deck.slice(); 
   const seat0Tiles = [];
   const seat1Tiles = [];
   const seat2Tiles = [];
   const seat3Tiles = [];
   
-  // Deck'in sonundan al (pop sırası ile)
   const tempDeck = [...deck];
   for(let i=0; i<15; i++) seat0Tiles.push(tempDeck.pop());
   for(let i=0; i<14; i++) seat1Tiles.push(tempDeck.pop());
@@ -382,7 +381,6 @@ function dealWithSeed(seed, names) {
   G.acilisDegeri = [null,null,null,null];
   G.roundBonus = [0,0,0,0]; G.roundPenalties = [0,0,0,0];
   
-  // Kendi taşlarımı ızgaraya yerleştir
   const myTiles = [seat0Tiles, seat1Tiles, seat2Tiles, seat3Tiles][mySeat] || seat0Tiles;
   myTiles.forEach((t,i) => {
     const r = i < 8 ? 0 : 1;
@@ -390,7 +388,6 @@ function dealWithSeed(seed, names) {
     G.grid[r][s] = t;
   });
   
-  // Rakip taşlarını sayı olarak tut (kapalı)
   const oppTiles = [];
   for(let i = 0; i < 3; i++) {
     const seatIdx = (mySeat + i + 1) % 4;
@@ -409,29 +406,48 @@ function dealWithSeed(seed, names) {
   startTimer();
 }
 
-// Game state yükle
+// Global state'i alıp Lokal yapıya dönüştür
 function loadGameState(state) {
-  if(!state || !state.turn) return;
+  if(!state || state.globalTurn === undefined) return;
   
-  // Sadece kendi ıstakamı görüyorum, diğerleri gizli
-  if(state.grid && mySeat === 0) G.grid = state.grid;
-  if(state.turn !== undefined) G.turn = state.turn;
-  if(state.scores) G.scores = state.scores;
-  if(state.tableGroups) G.tableGroups = state.tableGroups;
-  if(state.acildi) G.acildi = state.acildi;
-  if(state.names) {
-    G.names = state.names;
-    state.names.forEach((n,i) => {
-      const el = document.getElementById('n'+i);
-      if(el) el.textContent = n;
-    });
+  // Kendi yaptığımız hamlenin DB'den dönen yankısını yoksay (ekranın titrememesi için)
+  if(state.last_seat === mySeat) return; 
+
+  G.deck = state.deck || [];
+  G.tableGroups = state.tableGroups || [];
+  if(state.gosterge) G.gosterge = state.gosterge;
+  if(state.okey) G.okey = state.okey;
+
+  for(let i=0; i<4; i++) {
+      const globalSeat = (mySeat + i) % 4;
+      
+      // Sadece rakiplerin ellerini güncelle, kendi elimizi (G.grid) ezme!
+      if (i !== 0) G.opp[i-1] = state.hands[globalSeat] || [];
+      
+      if (i === 0) G.playerDisc = state.discards[globalSeat] || [];
+      else G.oppDisc[i-1] = state.discards[globalSeat] || [];
+
+      G.acildi[i] = state.acildi[globalSeat] || false;
+      G.cifteGidiyor[i] = state.cifteGidiyor[globalSeat] || false;
+      G.acilisDegeri[i] = state.acilisDegeri[globalSeat] || null;
+      G.scores[i] = state.scoresGlobal[globalSeat] || 0;
   }
-  
+
+  G.turn = (state.globalTurn - mySeat + 4) % 4;
+  G.phase = state.phase;
+
   renderAll();
   updTurn();
   updBtns();
+  updAcilisStatus();
+  
+  // Eğer rakibin eli bitmişse tespit et
+  for(let i=1; i<4; i++) {
+      if (G.acildi[i] && G.opp[i-1] && G.opp[i-1].length === 0 && G.phase === 'draw') {
+          endEl(i);
+      }
+  }
 }
-
 
 // ═══════════════════════════════════
 // SUPABASE + AUTH + SOHBET + SISTEM
@@ -516,12 +532,10 @@ async function doMisafir() {
   const n = prompt('Misafir adın?', 'Misafir'+Math.floor(Math.random()*1000));
   if(!n) return;
   guestName = n;
-  // Anonymous Supabase session oluştur
   try {
     const {data, error} = await supa.auth.signInAnonymously();
     if(error) throw error;
     currentUser = data.user;
-    // Profil oluştur
     await supa.from('profiles').upsert({
       id: currentUser.id,
       username: n,
@@ -551,17 +565,13 @@ async function loadProfile() {
   if(data) currentProfile = data;
 }
 
-
 function doGuestGiris() {
-  // Mevcut misafir verilerini sil ve giriş ekranına git
   doGuestCikis(false);
 }
 
 async function doGuestCikis(confirm_needed = true) {
   if(confirm_needed && !confirm('Misafir hesabından çıkılacak. Tüm veriler silinecek. Emin misiniz?')) return;
-  // Anonymous session'ı sonlandır
   try { await supa.auth.signOut(); } catch(e) {}
-  // Tüm localStorage temizle
   localStorage.removeItem('81okey_guest');
   localStorage.removeItem('81okey_guest_id');
   localStorage.removeItem('81okey_gamemode');
@@ -588,7 +598,6 @@ function updateMasaDurum(masaNo) {
 function showLobby() {
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('lobby').style.display = 'flex';
-  // User bar güncelle
   const nameEl = document.getElementById('lobby-username');
   const scoreEl = document.getElementById('lobby-score');
   const avEl = document.getElementById('lobby-avatar');
@@ -652,14 +661,12 @@ async function showProfile() {
   document.getElementById('profile-modal').style.display = 'flex';
 }
 
-// MOD SEÇİMİ
 function pickMod(mod) {
   gameMode = mod;
   document.getElementById('mod-online').classList.toggle('on', mod==='online');
   document.getElementById('mod-bot').classList.toggle('on', mod==='bot');
 }
 
-// İZLEYİCİ
 function izleMasa(masaNo) {
   currentMasaNo = masaNo;
   currentRoomId = 'masa-' + masaNo;
@@ -668,11 +675,9 @@ function izleMasa(masaNo) {
   document.getElementById('game').style.display = 'flex';
   document.getElementById('mode-badge').textContent = '👁 İzleme — Masa ' + masaNo;
   document.getElementById('mode-badge').style.display = 'block';
-  // Istaka ve butonları gizle
   setTimeout(() => {
     document.querySelectorAll('.rack-outer').forEach(el => el.style.visibility='hidden');
     document.querySelectorAll('.acts-col').forEach(el => el.style.visibility='hidden');
-    // Boş koltuk varsa Otur butonu göster
     showSpectatorOturBtn();
   }, 200);
   subscribeToChatRoom(currentRoomId);
@@ -682,7 +687,6 @@ function izleMasa(masaNo) {
 }
 
 function showSpectatorOturBtn() {
-  // Mevcut oyuncu sayısını kontrol et (şimdilik basit versiyon - her zaman göster)
   let oturDiv = document.getElementById('spec-otur-bar');
   if(!oturDiv) {
     oturDiv = document.createElement('div');
@@ -700,17 +704,14 @@ function kaldirOturBar() {
 }
 
 function izlemeciyiOturt() {
-  // İzleyici oyuna katılıyor
   kaldirOturBar();
   isSpectating = false;
   document.getElementById('mode-badge').textContent = '🌐 Çevrimiçi — Masa ' + currentMasaNo;
-  // Oyun zaten çalışıyor, sadece ıstakayı ve butonları göster
   document.querySelectorAll('.rack-outer').forEach(el => el.style.visibility='visible');
   document.querySelectorAll('.acts-col').forEach(el => el.style.visibility='visible');
   setMsg('Masaya oturdunuz! Sıranızı bekleyin...');
 }
 
-// SOHBET
 function toggleChat() {
   chatOpen = !chatOpen;
   document.getElementById('chat-panel').style.transform = chatOpen ? 'translateX(0)' : 'translateX(100%)';
@@ -749,7 +750,6 @@ function addChatMsg(msg) {
   msgs.scrollTop = msgs.scrollHeight;
 }
 
-// STATS KAYDET
 function saveGameStats() {
   if(!currentUser || !isOnlineGame()) { console.log('Bot oyunu — kaydedilmedi'); return; }
   const scores = window._lastScores || (G&&G.scores);
@@ -781,7 +781,6 @@ function saveGameStats() {
   });
 }
 
-// LOBİYE DÖN
 function goToLobby() {
   document.getElementById('game').style.display = 'none';
   document.getElementById('end-wrap').classList.remove('show');
@@ -804,7 +803,6 @@ function lobiyeDon() {
     if(typeof turnTimer !== 'undefined') clearInterval(turnTimer);
     if(typeof waitingInterval !== 'undefined' && waitingInterval) { clearInterval(waitingInterval); waitingInterval = null; }
     
-    // Koltuktan çık, botu yerleştir
     if(typeof isMultiplayer !== 'undefined' && isMultiplayer && myRoomId && mySeat >= 0) {
       const update = {};
       update['seat' + mySeat + '_user'] = null;
@@ -837,14 +835,11 @@ function lobiyeDon() {
     document.getElementById('chat-panel').style.transform = 'translateX(100%)';
     currentRoomId = null;
     
-    // Lobi ekranını göster
     document.getElementById('lobby').style.display = 'flex';
     if(currentUser) loadProfile().then(() => { showLobby(); showGeriDonBtn(lastMasaNo); });
     else { showLobby(); showGeriDonBtn(lastMasaNo); }
   }
 }
-
-// lastMasaNo yukarıda tanımlı
 
 function showGeriDonBtn(masaNo) {
   if(!masaNo) return;
@@ -875,18 +870,15 @@ function geriDonMasaya(masaNo) {
   window.open(url.toString(), '_blank');
 }
 
-// SAYFA YÜKLENINCE
 window.addEventListener('load', async () => {
   const urlParams = new URLSearchParams(window.location.search);
   const masaParam = urlParams.get('masa');
   const modeParam = urlParams.get('mode');
   
-  // Oturum kontrolü
   const {data:{session}} = await supa.auth.getSession();
   if(session) {
     currentUser = session.user;
     await loadProfile();
-    // Anonymous kullanıcı ise guestName'i profilden al
     if(session.user.is_anonymous && currentProfile) {
       guestName = currentProfile.username;
     }
@@ -895,12 +887,10 @@ window.addEventListener('load', async () => {
     if(savedGuest) guestName = savedGuest;
   }
   
-  // URL'de masa parametresi varsa direkt oyuna/izlemeye gir
   if(masaParam) {
     currentMasaNo = parseInt(masaParam);
     gameMode = localStorage.getItem('81okey_gamemode') || modeParam || 'online';
     
-    // Auth ekranını gizle, lobi de gizli kalsın
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('lobby').style.display = 'none';
     
@@ -908,13 +898,10 @@ window.addEventListener('load', async () => {
       document.getElementById('game').style.display = 'flex';
       setTimeout(() => izleMasa(currentMasaNo), 100);
     } else if(modeParam === 'katilimci') {
-      // Katılımcı - direkt bekleme ekranına git, setup yok
       document.getElementById('game').style.display = 'none';
       if(currentUser || guestName) {
         gameMode = 'online';
-        // Varsayılan ayarlarla direkt joinRoom
         const defSettings = {totalEl:5,acilisPuan:81,normalTime:15,acikTime:30,oyunTuru:'bireysel',yardimModu:'yardimli',diff:'medium'};
-        // G objesini başlat
         const pn = (currentUser && currentProfile) ? currentProfile.username : (guestName || 'Oyuncu');
         G = {diff:'medium',totalEl:5,acilisPuan:81,curEl:1,scores:[0,0,0,0],teamScores:[0,0],
           isEsli:false,yardim:true,names:[pn,'Oyuncu 1','Oyuncu 2','Oyuncu 3'],
@@ -938,7 +925,6 @@ window.addEventListener('load', async () => {
         document.getElementById('auth-screen').style.display = 'flex';
       }
     } else {
-      // Kurucu - setup göster
       document.getElementById('game').style.display = 'none';
       if(currentUser || guestName) {
         document.getElementById('setup').style.display = 'flex';
@@ -949,11 +935,9 @@ window.addEventListener('load', async () => {
       }
     }
   } else {
-    // Normal lobi açılışı
     if(currentUser || guestName) {
       showLobby();
     }
-    // session/guest yoksa auth ekranı görünür
   }
 });
 
@@ -963,21 +947,15 @@ window.addEventListener('load', async () => {
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:system-ui,sans-serif;background:#062033;color:#fff;overflow:hidden;touch-action:none;}
-
-/* --- YENİ LOBİ TASARIMI --- */
 #lobby { position: fixed; inset: 0; display: none; flex-direction: column; overflow-y: auto; background: radial-gradient(circle at center, #1a4a6b, #062033); z-index: 500; }
 .lobby-header { background: rgba(0,0,0,0.5); border-bottom: 2px solid #e8c84a; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
 .lobby-title { font-size: 24px; font-weight: 900; color: #e8c84a; letter-spacing: 1px; }
 .lobby-info { font-size: 13px; color: rgba(255,255,255,0.7); }
 .tables-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 40px 20px; padding: 40px 20px; max-width: 1400px; margin: 0 auto; width: 100%; }
-
-/* Masa Tasarımı */
 .masa-wrapper { position: relative; width: 220px; height: 220px; margin: 0 auto; display: flex; align-items: center; justify-content: center; }
 .masa-board { background: linear-gradient(135deg, #c0802c, #8e5812); width: 120px; height: 120px; border-radius: 20px; border: 4px solid #5a3508; box-shadow: 0 10px 20px rgba(0,0,0,0.6), inset 0 0 15px rgba(0,0,0,0.3); display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; z-index: 2; }
 .masa-board span { color: #fff; font-weight: 900; font-size: 18px; text-shadow: 1px 1px 2px #000; }
 .masa-board small { color: rgba(255,255,255,0.6); font-size: 10px; font-weight: bold; margin-top: 5px; }
-
-/* Oyna Butonları (Sandalyeler) */
 .oyna-btn { position: absolute; background: #0a2b42; border: 3px solid #e8c84a; color: #e8c84a; font-weight: 800; border-radius: 50%; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; font-size: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); z-index: 3; }
 .oyna-btn:hover { transform: scale(1.15); background: #e8c84a; color: #1a1a00; border-color: #fff; }
 .seat-top { top: 0; left: 50%; transform: translateX(-50%); }
@@ -988,18 +966,14 @@ body{font-family:system-ui,sans-serif;background:#062033;color:#fff;overflow:hid
 .seat-bottom:hover { transform: translateX(-50%) scale(1.15); }
 .seat-left:hover { transform: translateY(-50%) scale(1.15); }
 .seat-right:hover { transform: translateY(-50%) scale(1.15); }
-
-/* --- YENİ YATAY AYARLAR (MODAL) TASARIMI --- */
 #setup { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.85); z-index: 1000; padding: 20px; backdrop-filter: blur(5px); }
 .setup-modal { background: #062033; border: 2px solid #e8c84a; border-radius: 16px; padding: 25px; width: 100%; max-width: 750px; position: relative; box-shadow: 0 15px 40px rgba(0,0,0,0.7); display: flex; flex-direction: column; gap: 20px; animation: modalPop 0.3s ease-out; }
 @keyframes modalPop { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
 .close-modal-btn { position: absolute; top: 15px; right: 20px; background: none; border: none; color: rgba(255,255,255,0.5); font-size: 28px; cursor: pointer; transition: color 0.2s; line-height: 1; }
 .close-modal-btn:hover { color: #ff4444; }
-
 .s-title { font-size: 24px; font-weight: 800; color: #e8c84a; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; margin-bottom: 5px; }
-.setup-body { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; } /* Yatay Tasarım İçin İki Sütun */
+.setup-body { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; } 
 @media (max-width: 600px) { .setup-body { grid-template-columns: 1fr; gap: 10px; } }
-
 .s-group { background: rgba(0,0,0,0.3); padding: 15px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05); }
 .s-label { font-size: 11px; color: rgba(255,255,255,0.5); margin-bottom: 6px; display: block; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
 .s-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
@@ -1012,8 +986,6 @@ body{font-family:system-ui,sans-serif;background:#062033;color:#fff;overflow:hid
 .start-btn { background: #e8c84a; color: #1a1a00; border: none; border-radius: 10px; padding: 14px; font-size: 16px; font-weight: 800; cursor: pointer; width: 100%; text-transform: uppercase; letter-spacing: 1px; transition: transform 0.1s, background 0.2s; margin-top: 10px; }
 .start-btn:hover { background: #ffdf6a; transform: translateY(-2px); }
 .start-btn:active { transform: translateY(0); }
-
-/* MEVCUT OYUN CSS'LERİ */
 #game{display:none;position:fixed;inset:0;align-items:center;justify-content:center;background:radial-gradient(circle at center,#1a4a6b,#062033);}
 #game-board{width:1140px;height:660px;position:relative;transform-origin:center center;display:grid;grid-template-columns: 100px 1fr 100px;grid-template-rows: auto 1fr auto;grid-template-areas: ". top-bar ." "left center right" "bot bot bot";gap:2px 6px;padding:2px 6px;}
 .tile{width:46px;height:66px;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:grab;user-select:none;touch-action:none;flex-shrink:0;border:1px solid #ccc;background:#fcfcfc;box-shadow:inset -1px -2px 3px rgba(0,0,0,.2),1px 2px 3px rgba(0,0,0,.3);transition:transform .1s;position:relative;}
@@ -1138,7 +1110,6 @@ body{font-family:system-ui,sans-serif;background:#062033;color:#fff;overflow:hid
 <div id="ghost"></div>
 <div id="mode-badge" style="position:fixed;top:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.2);border-radius:12px;padding:3px 12px;font-size:11px;color:rgba(255,255,255,.7);z-index:10;pointer-events:none;display:none;"></div>
 
-<!-- AUTH EKRANI -->
 <div id="auth-screen" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at center,#1a4a6b,#062033);z-index:2000;padding:20px;">
   <div style="background:#062033;border:2px solid #e8c84a;border-radius:16px;padding:30px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.8);">
     <div style="text-align:center;font-size:36px;font-weight:900;color:#e8c84a;margin-bottom:5px;letter-spacing:2px;">81 OKEY</div>
@@ -1166,7 +1137,6 @@ body{font-family:system-ui,sans-serif;background:#062033;color:#fff;overflow:hid
   </div>
 </div>
 
-<!-- PROFİL MODAL -->
 <div id="profile-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:3000;align-items:center;justify-content:center;">
   <div style="background:#062033;border:2px solid #e8c84a;border-radius:16px;padding:24px;max-width:420px;width:90%;">
     <h2 style="color:#e8c84a;font-size:18px;margin-bottom:16px;text-align:center;">👤 Profilim</h2>
@@ -1175,7 +1145,6 @@ body{font-family:system-ui,sans-serif;background:#062033;color:#fff;overflow:hid
   </div>
 </div>
 
-<!-- SOHBET -->
 <div id="chat-panel" style="position:fixed;right:0;top:0;bottom:0;width:260px;background:#071e2e;border-left:1px solid rgba(255,255,255,.1);display:flex;flex-direction:column;z-index:50;transform:translateX(100%);transition:transform .3s;">
   <div style="padding:10px 14px;background:#0a2b42;border-bottom:1px solid rgba(255,255,255,.1);display:flex;justify-content:space-between;align-items:center;">
     <span style="font-size:13px;font-weight:700;color:#e8c84a;">💬 Sohbet</span>
@@ -1513,15 +1482,12 @@ async function initLobby() {
         grid.appendChild(wrapper);
     }
     
-    // Realtime lobi güncellemesi - 10sn'de bir yenile
     if(!window._lobiRefreshInterval) {
         window._lobiRefreshInterval = setInterval(() => {
             if(document.getElementById('lobby').style.display !== 'none') initLobby();
         }, 10000);
     }
 }
-// Sayfa yüklenince lobiyi oluştur
-// initLobby auth sonrası
 
 async function openSetup(masaNo) {
     currentMasaNo = masaNo || 1;
@@ -1530,7 +1496,6 @@ async function openSetup(masaNo) {
     if(oturBar) oturBar.style.display = 'none';
     
     if(gameMode !== 'online') {
-      // Bot modu - setup göster
       if(currentUser && currentProfile) document.getElementById('pname').value = currentProfile.username;
       else if(guestName) document.getElementById('pname').value = guestName;
       const url = new URL(window.location.href);
@@ -1542,7 +1507,6 @@ async function openSetup(masaNo) {
       return;
     }
     
-    // Online mod - masa dolu mu, kurucu mu kontrol et
     const {data: room} = await supa.from('rooms').select('*').eq('masa_no', masaNo).single();
     
     if(!room) { alert('Masa bulunamadı!'); return; }
@@ -1550,7 +1514,6 @@ async function openSetup(masaNo) {
     const seat0Bos = !room.seat0_user;
     
     if(seat0Bos) {
-      // Kurucu - setup göster
       if(currentUser && currentProfile) document.getElementById('pname').value = currentProfile.username;
       else if(guestName) document.getElementById('pname').value = guestName;
       const url = new URL(window.location.href);
@@ -1560,7 +1523,6 @@ async function openSetup(masaNo) {
       localStorage.setItem('81okey_gamemode', 'online');
       window.open(url.toString(), '_blank');
     } else {
-      // Katılımcı - direkt bekleme ekranına git (setup yok)
       localStorage.setItem('81okey_guest', guestName || '');
       localStorage.setItem('81okey_gamemode', 'online');
       const url = new URL(window.location.href);
@@ -1581,7 +1543,6 @@ function closeSetup() {
     document.getElementById('setup').style.display = 'none';
 }
 
-// --- MEVCUT OYUN DEĞİŞKENLERİ ---
 const COLS=['r','b','g','k'];
 const CLONG={r:'Kırmızı',b:'Mavi',g:'Sarı',k:'Siyah'};
 const CSYM={r:'♥',b:'♦',g:'♣',k:'♠'};
@@ -1685,7 +1646,6 @@ function startGame(){
   document.getElementById('n0').textContent=pn;
   document.getElementById('acilis-chip').textContent='Açılış: '+acilisPuan+'p';
   
-  // Lobi ve modal kapatılıyor, oyun açılıyor
   document.getElementById('lobby').style.display='none'; 
   document.getElementById('setup').style.display='none'; 
   document.getElementById('game').style.display='flex';
@@ -1708,7 +1668,6 @@ function startGame(){
     startMultiplayerGame(currentMasaNo, settings);
     return;
   } else {
-    // Bot modu
     currentRoomId = 'local-' + Date.now();
     badge.textContent = '🤖 Tek Başına — XP Kazanılmaz';
     badge.style.display = 'block';
@@ -1974,6 +1933,7 @@ function canAddTileToAnyGroup(tile) {
 function executeTakeSideTile(tile, oppDiscIdx) {
     G.oppDisc[oppDiscIdx].pop(); const [r,s] = firstEmpty(); if(r >= 0) G.grid[r][s] = tile;
     G.phase = 'discard'; renderAll();
+    if(isMultiplayer) saveGameState();
 }
 
 function renderTable() {
@@ -2122,6 +2082,7 @@ function doOkeySwap(gi, swapIdx, tile) {
   for(let r=0; r<2; r++) { for(let s=0; s<NSLOTS; s++) { if(G.grid[r][s]?.id === tile.id) { G.grid[r][s] = null; break; } } }
   grp[swapIdx] = tile; const [er, es] = firstEmpty(); if (er >= 0) G.grid[er][es] = okeyTile;
   if (G.acildi[0] === 'cift') G.islenenBuTur++; G.sel = null; addExtraTime(); renderAll(); renderTable(); updBtns(); setMsg('⭐ Okeyi takıma geri aldın!'); checkElBitti();
+  if(isMultiplayer) saveGameState();
 }
 
 function onGrpClick(gi){
@@ -2137,6 +2098,7 @@ function doEklePos(gi,pos){
   const hand=getHand(), tile=hand.find(t=>t.id===G.sel); if(!tile)return; const grp=G.tableGroups[gi];
   if(!canAddToGroup(grp,tile,pos)){ setMsg(grp.length >= 8 ? 'Bir grup en fazla 8 taştan oluşabilir!' : 'Eklenemiyor!'); return; }
   doEklePosInternal(gi, pos, tile); if (G.acildi[0] === 'cift') G.islenenBuTur++; G.sel=null; addExtraTime(); renderAll();renderTable();updBtns(); setMsg(tLong(tile)+' gruba işlendi!'); checkElBitti();
+  if(isMultiplayer) saveGameState();
 }
 
 function doEklePosInternal(gi, pos, tile) {
@@ -2163,7 +2125,7 @@ function doOtoIsle() {
   const remainingHand = getHand();
   if (G.acildi.includes('cift')) { const newPairs = findPairGroups(remainingHand); if (newPairs && newPairs.length > 0) { for(let p of newPairs) { if (G.acildi[0] === 'cift' && G.islenenBuTur >= 2) break; p.forEach(t=>{ for(let r=0;r<2;r++)for(let s=0;s<NSLOTS;s++){if(G.grid[r][s]?.id===t.id)G.grid[r][s]=null;} }); G.tableGroups.push(p); newGroupCount++; if (G.acildi[0] === 'cift') G.islenenBuTur++; } } } 
   if (G.acildi[0] === 'seri') { const newGroups = findOptimalGroups(remainingHand); if (newGroups && newGroups.length > 0) { newGroups.forEach(g => { g.tiles.forEach(t=>{ for(let r=0;r<2;r++)for(let s=0;s<NSLOTS;s++){if(G.grid[r][s]?.id===t.id)G.grid[r][s]=null;} }); G.tableGroups.push(g.tiles); newGroupCount++; }); } }
-  if (addedCount > 0 || swappedCount > 0 || newGroupCount > 0) { G.sel = null; addExtraTime(); renderAll(); renderTable(); updBtns(); checkElBitti(); let msgStr = '✓ İşlem başarılı: '; if(addedCount > 0) msgStr += `${addedCount} taş eklendi. `; if(newGroupCount > 0) msgStr += `${newGroupCount} yeni grup açıldı. `; if(swappedCount > 0) msgStr += `${swappedCount} okey alındı.`; setMsg(msgStr.trim()); } else { setMsg('Şu an masaya işlenecek taşın veya açılacak yepyeni bir grubun yok.'); }
+  if (addedCount > 0 || swappedCount > 0 || newGroupCount > 0) { G.sel = null; addExtraTime(); renderAll(); renderTable(); updBtns(); checkElBitti(); let msgStr = '✓ İşlem başarılı: '; if(addedCount > 0) msgStr += `${addedCount} taş eklendi. `; if(newGroupCount > 0) msgStr += `${newGroupCount} yeni grup açıldı. `; if(swappedCount > 0) msgStr += `${swappedCount} okey alındı.`; setMsg(msgStr.trim()); if(isMultiplayer) saveGameState(); } else { setMsg('Şu an masaya işlenecek taşın veya açılacak yepyeni bir grubun yok.'); }
 }
 
 function updScores(){ 
@@ -2180,6 +2142,7 @@ function drawDeck(){
   if(G.turn!==0||G.phase!=='draw')return; if(!G.deck.length){setMsg('Deste bitti! El berabere.');endEl(-1);return;}
   const t=G.deck.pop(), isGosterge=G.gosterge&&t.id===G.gosterge.id; const[r,s]=firstEmpty();if(r<0)return;
   G.grid[r][s]=t;G.phase='discard';G.islenenBuTur=0;renderAll(); setMsg(isGosterge?'⭐ Gösterge taşını çektin!':'Çektin: '+tLong(t)); updBtns();
+  if(isMultiplayer) saveGameState();
 }
 
 function doDiscard(id){
@@ -2197,8 +2160,10 @@ function doDiscard(id){
     if(G.grid[r][s]?.id===id){
       G.grid[r][s]=null; G.playerDisc.push(t); G.sel=null;G.phase='draw'; renderAll();
       if (!isOkeyTile && !isIsler) setMsg('Attın: '+tLong(t)); updBtns();
-      if(G.acildi[0]){ const remaining=getHand(); if(remaining.length===0){ G.eldenBiten = !G.turnStartedOpen; G.okeyBiten = isOkeyTile; endEl(0); return true; } }
-      nextTurn();return true;
+      if(G.acildi[0]){ const remaining=getHand(); if(remaining.length===0){ G.eldenBiten = !G.turnStartedOpen; G.okeyBiten = isOkeyTile; endEl(0); if(isMultiplayer) saveGameState(); return true; } }
+      nextTurn();
+      if(isMultiplayer) saveGameState();
+      return true;
     }
   }return false;
 }
@@ -2210,7 +2175,7 @@ function hideAcPanel(){ acSelIds=[]; document.getElementById('ac-panel').style.d
 
 function renderAcPanel(){
   const div=document.getElementById('ac-sel-tiles');
-  if(!div) return; // Panel yüklenmemişse çık
+  if(!div) return; 
   const hand=getHand(), selTiles=hand.filter(t=>acSelIds.includes(t.id)); div.innerHTML='';
   selTiles.forEach(t=>{ const el=document.createElement('div');el.className='tile sm '+tCls(t); el.innerHTML=`<span class="tv">${tLabel(t)}</span><span class="tc">${tSub(t)}</span>`; div.appendChild(el); });
   let pts=0, validGroups=false, validPairs=false; const pairs=findPairGroups(selTiles); let valid = false;
@@ -2247,7 +2212,9 @@ function doAc(){
       if (!isPairOnly && !isGroupsValid) { applyPenalty(0, 81, 'Hatalı Açılış! +81 Ceza'); setMsg('Hatalı Açılış! Geçersiz dizilim. +81 Puan.'); hideAcPanel(); return; }
       selTiles.forEach(t=>{for(let r=0;r<2;r++)for(let s=0;s<NSLOTS;s++){if(G.grid[r][s]?.id===t.id)G.grid[r][s]=null;}});
       if (isPairOnly) pairs.forEach(p=>G.tableGroups.push(p)); else groups.forEach(grp=>G.tableGroups.push(grp));
-      acSelIds=[]; hideAcPanel(); addExtraTime(); renderAll(); renderTable(); updBtns(); setMsg('✓ Yeni taşlar masaya açıldı!'); checkElBitti(); return;
+      acSelIds=[]; hideAcPanel(); addExtraTime(); renderAll(); renderTable(); updBtns(); setMsg('✓ Yeni taşlar masaya açıldı!'); checkElBitti();
+      if(isMultiplayer) saveGameState();
+      return;
   }
 
   if (isPairOnly) {
@@ -2257,7 +2224,9 @@ function doAc(){
           selTiles.forEach(t=>{for(let r=0;r<2;r++)for(let s=0;s<NSLOTS;s++){if(G.grid[r][s]?.id===t.id)G.grid[r][s]=null;}}); pairs.forEach(p=>G.tableGroups.push(p)); G.acildi[0] = 'cift'; acSelIds=[]; G.mustUseTile = null; G.mustOpenThisTurn = false; 
           if(pairs.length > G.highestCift) G.highestCift = pairs.length; G.acilisDegeri[0] = pairs.length + " çiftle açtı";
           if(isFirstOpen) checkAndApplyBonus(0, 'cift', pairs.length);
-          hideAcPanel(); addExtraTime(); renderAll(); renderTable(); updBtns(); updAcilisStatus(); setMsg('✓ ' + pairs.length + ' çift ile açıldın!'); checkElBitti(); return; 
+          hideAcPanel(); addExtraTime(); renderAll(); renderTable(); updBtns(); updAcilisStatus(); setMsg('✓ ' + pairs.length + ' çift ile açıldın!'); checkElBitti();
+          if(isMultiplayer) saveGameState();
+          return; 
       } 
       else { applyPenalty(0, 81, 'Hatalı Açılış! +81 Ceza'); setMsg(`Hatalı Açılış: En az ${minCift} çift gerekli! +81 Puan.`); hideAcPanel(); return; }
   } else {
@@ -2267,7 +2236,9 @@ function doAc(){
           selTiles.forEach(t=>{for(let r=0;r<2;r++)for(let s=0;s<NSLOTS;s++){if(G.grid[r][s]?.id===t.id)G.grid[r][s]=null;}}); groups.forEach(grp=>G.tableGroups.push(grp)); G.acildi[0] = 'seri'; acSelIds=[]; G.mustUseTile = null; G.mustOpenThisTurn = false; 
           if(pts > G.highestSeri) G.highestSeri = pts; G.acilisDegeri[0] = pts + " ile açtı";
           if(isFirstOpen) checkAndApplyBonus(0, 'seri', pts);
-          hideAcPanel(); addExtraTime(); renderAll(); renderTable(); updBtns(); updAcilisStatus(); setMsg('Açıldın! '+pts+'p.'); checkElBitti(); return; 
+          hideAcPanel(); addExtraTime(); renderAll(); renderTable(); updBtns(); updAcilisStatus(); setMsg('Açıldın! '+pts+'p.'); checkElBitti();
+          if(isMultiplayer) saveGameState();
+          return; 
       } 
       else { applyPenalty(0, 81, 'Hatalı Açılış! +81 Ceza'); setMsg(`Hatalı Açılış: En az ${minSeri} sayı gerekli! +81 Puan.`); hideAcPanel(); return; }
   }
@@ -2451,7 +2422,7 @@ function nextEl(){
         window._lastScores = [...G.scores];
         document.getElementById('end-scores').innerHTML = G.scores.map((s,i)=>{
           const isMe=i===0, isWin=s===Math.min(...G.scores);
-          return '<div style="display:flex;justify-content:space-between;padding:2px 0;'+(isMe?'color:#e8c84a;font-weight:700;':'')+(isWin?'color:#88ff88;':'')+'"><span>'+(isWin?'🏆 ':'')+G.names[i]+(isMe?' (Sen)':'')+'</span><span>'+s+' Puan</span></div>';
+          return '<div style="display:flex;justify-content:space-between;padding:2px 0;'+(isMe?'color:#e8c84a;font-weight:700;':'')+(isWin?'color:#88ff88;':'')+'"><span>'+(isWin?'🏆 ':"")+G.names[i]+(isMe?' (Sen)':'')+'</span><span>'+s+' Puan</span></div>';
         }).join('');
       }
       document.getElementById('end-wrap').classList.add('show');
@@ -2575,7 +2546,11 @@ function findOptimalGroups(hand){
 
 function nextTurn(){
   G.turn=(G.turn+1)%4; G.phase='draw'; G.turnStartedOpen=G.acildi[G.turn]; updTurn(); startTimer(); 
-  if(G.turn!==0){ setTimeout(botPlay,1200); } else { renderAll(); updBtns(); }
+  if(isMultiplayer){ 
+     renderAll(); updBtns(); 
+  } else {
+     if(G.turn!==0){ setTimeout(botPlay,1200); } else { renderAll(); updBtns(); }
+  }
 }
 
 function botPlay(){
