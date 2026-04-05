@@ -66,8 +66,9 @@ function showLobby() {
   const avEl=document.getElementById('lobby-avatar');
   const logoutBtn=document.getElementById('logout-btn');
   if(currentUser&&currentProfile) {
-    nameEl.textContent=currentProfile.username;
-    scoreEl.textContent='Oyun: '+(currentProfile.total_games||0)+' | Kazanma: '+(currentProfile.total_wins||0);
+    const lvl = getLevel(currentProfile.xp||0);
+    nameEl.textContent = getLevelBadge(lvl.level) + ' ' + currentProfile.username;
+    scoreEl.textContent = '⚡ ' + (currentProfile.rating||1000) + ' | Seviye ' + lvl.level + ' ' + lvl.name;
     avEl.textContent=currentProfile.username.charAt(0).toUpperCase();
     logoutBtn.style.display='';
   } else {
@@ -84,14 +85,35 @@ async function showProfile() {
   const {data}=await supa.from('profiles').select('*').eq('id',currentUser.id).single();
   if(!data){alert('Profil yüklenemedi.');return;}
   currentProfile=data;
-  const wr=data.total_games?Math.round((data.total_wins||0)/data.total_games*100):0;
+  const xp = data.xp||0;
+  const rating = data.rating||1000;
+  const lvl = getLevel(xp);
+  const nextLvl = getNextLevel(xp);
+  const onlineGames = data.online_games||0;
+  const onlineWins = data.online_wins||0;
+  const wr = onlineGames ? Math.round(onlineWins/onlineGames*100) : 0;
+  const xpProgress = nextLvl ? Math.round((xp - lvl.min)/(nextLvl.min - lvl.min)*100) : 100;
+
   document.getElementById('profile-content').innerHTML=`
-    <div class="profile-stat"><span>Kullanıcı Adı</span><b>${data.username}</b></div>
-    <div class="profile-stat"><span>Toplam Oyun</span><b>${data.total_games||0}</b></div>
-    <div class="profile-stat"><span>Kazanma</span><b style="color:#88ff88">${data.total_wins||0}</b></div>
-    <div class="profile-stat"><span>Kazanma Oranı</span><b>${wr}%</b></div>
-    <div class="profile-stat"><span>Toplam Skor</span><b style="color:#ff8888">${data.total_score||0}</b></div>
-    <div class="profile-stat"><span>Üyelik</span><b>${new Date(data.created_at).toLocaleDateString('tr-TR')}</b></div>
+    <div style="text-align:center;margin-bottom:14px;">
+      <div style="font-size:36px;margin-bottom:4px;">${getLevelBadge(lvl.level)}</div>
+      <div style="font-size:20px;font-weight:900;color:#e8c84a;">${data.username}</div>
+      <div style="font-size:13px;color:#aaa;margin-top:2px;">Seviye ${lvl.level} — ${lvl.name}</div>
+    </div>
+    <div style="margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:#aaa;margin-bottom:4px;">
+        <span>XP: ${xp}</span>
+        <span>${nextLvl ? nextLvl.name+' için '+nextLvl.min+' XP' : '🌟 Maks Seviye'}</span>
+      </div>
+      <div style="background:rgba(255,255,255,.1);border-radius:6px;height:8px;overflow:hidden;">
+        <div style="background:linear-gradient(90deg,#e8c84a,#ff8c00);height:100%;width:${xpProgress}%;border-radius:6px;transition:width .5s;"></div>
+      </div>
+    </div>
+    <div class="profile-stat"><span>⚡ Rating</span><b style="color:#e8c84a;">${rating}</b></div>
+    <div class="profile-stat"><span>🎮 Online Oyun</span><b>${onlineGames}</b></div>
+    <div class="profile-stat"><span>🏆 Online Kazanma</span><b style="color:#88ff88;">${onlineWins}</b></div>
+    <div class="profile-stat"><span>📊 Kazanma Oranı</span><b>${wr}%</b></div>
+    <div class="profile-stat"><span>📅 Üyelik</span><b>${new Date(data.created_at).toLocaleDateString('tr-TR')}</b></div>
   `;
   document.getElementById('profile-modal').classList.add('show');
 }
@@ -125,25 +147,91 @@ function addChatMsg(msg) {
   msgs.appendChild(div); msgs.scrollTop=msgs.scrollHeight;
 }
 
+// XP seviye sistemi
+const XP_LEVELS = [
+  {level:1, name:'Acemi',      min:0},
+  {level:2, name:'Amatör',     min:200},
+  {level:3, name:'Oyuncu',     min:500},
+  {level:4, name:'Tecrübeli',  min:1000},
+  {level:5, name:'Uzman',      min:2000},
+  {level:6, name:'Usta',       min:4000},
+  {level:7, name:'Şampiyon',   min:7000},
+  {level:8, name:'Efsane',     min:12000}
+];
+
+function getLevel(xp) {
+  let lvl = XP_LEVELS[0];
+  for(const l of XP_LEVELS) { if(xp >= l.min) lvl = l; }
+  return lvl;
+}
+
+function getNextLevel(xp) {
+  for(const l of XP_LEVELS) { if(xp < l.min) return l; }
+  return null; // Maks seviye
+}
+
+function getLevelBadge(level) {
+  const badges = ['','🌱','⭐','🎯','💎','🔥','👑','🏆','🌟'];
+  return badges[level] || '🌟';
+}
+
+// BOT OYUNU mu ONLINE OYUN mu kontrol et
+function isOnlineGame() {
+  // currentRoomId gerçek bir Supabase room ID'si ise online, local- ile başlıyorsa bot oyunu
+  return currentRoomId && !currentRoomId.startsWith('local-');
+}
+
 function saveGameStats() {
   if(!currentUser) return;
-  // G yoksa son kaydedilen skorları kullan
+  // SADECE ONLİNE OYUNLARI KAYDET
+  if(!isOnlineGame()) {
+    console.log('Bot oyunu — profil kaydedilmedi.');
+    return;
+  }
   const scores = (G && G.scores) ? G.scores : window._lastScores;
   if(!scores) return;
   const myScore = scores[0];
   const minScore = Math.min(...scores);
   const isWin = myScore === minScore;
-  supa.from('game_history').insert({
-    user_id: currentUser.id,
-    result: isWin ? 'win' : 'lose',
-    score_delta: myScore
-  });
-  supa.from('profiles').select('total_games,total_wins,total_score').eq('id',currentUser.id).single().then(({data})=>{
-    if(data) supa.from('profiles').update({
-      total_games: (data.total_games||0) + 1,
-      total_wins: (data.total_wins||0) + (isWin ? 1 : 0),
-      total_score: (data.total_score||0) + myScore
-    }).eq('id', currentUser.id).then(r => console.log('Profil güncellendi:', r));
+
+  // XP hesapla
+  let xpGain = 10; // Her oyun
+  if(isWin) xpGain += 20; // Kazanma bonusu
+  // Oyunu bitiren (score=0 veya en düşük) ekstra XP
+  if(myScore === 0) xpGain += 15;
+
+  // Rating hesapla
+  const ratingChange = isWin ? 25 : -10;
+
+  supa.from('profiles').select('*').eq('id', currentUser.id).single().then(({data}) => {
+    if(!data) return;
+    const newXp = (data.xp||0) + xpGain;
+    const newRating = Math.max(1000, (data.rating||1000) + ratingChange);
+    const newLevel = getLevel(newXp).level;
+    const oldLevel = getLevel(data.xp||0).level;
+
+    supa.from('profiles').update({
+      online_games: (data.online_games||0) + 1,
+      online_wins: (data.online_wins||0) + (isWin ? 1 : 0),
+      total_score: (data.total_score||0) + myScore,
+      xp: newXp,
+      rating: newRating,
+      level: newLevel
+    }).eq('id', currentUser.id).then(() => {
+      console.log(`Profil güncellendi: XP +${xpGain}, Rating ${ratingChange>0?'+':''}${ratingChange}`);
+      // Seviye atladı mı?
+      if(newLevel > oldLevel) {
+        const lvlInfo = getLevel(newXp);
+        spawnFloatingText(`🎉 Seviye Atladın! ${getLevelBadge(newLevel)} ${lvlInfo.name}`, '#e8c84a');
+      }
+    });
+
+    // Oyun geçmişi kaydet
+    supa.from('game_history').insert({
+      user_id: currentUser.id,
+      result: isWin ? 'win' : 'lose',
+      score_delta: myScore
+    });
   });
 }
 
