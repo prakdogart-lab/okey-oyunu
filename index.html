@@ -2,8 +2,7 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
 // ═══════════════════════════════════
 // GERÇEK ZAMANLI ÇOK OYUNCULU SİSTEM
 // ═══════════════════════════════════
@@ -31,6 +30,14 @@ async function joinRoom(masaNo) {
   myRoomId = rooms.id;
   const myName = (currentUser && currentProfile) ? currentProfile.username : (guestName || 'Misafir');
   const myUserId = currentUser ? currentUser.id : ('guest-' + Date.now());
+  
+  // Aynı kullanıcı zaten masada mı?
+  for(let i = 0; i < 4; i++) {
+    if(rooms['seat' + i + '_user'] === myUserId) {
+      alert('Bu masada zaten oturuyorsunuz!');
+      return false;
+    }
+  }
   
   // Boş koltuk bul
   let bosSeat = -1;
@@ -252,28 +259,123 @@ async function startMultiplayerGame(masaNo) {
       });
       
       if(mySeat === 0 && room.status !== 'playing') {
-        // Seat 0 oyunu başlatır
-        await supa.from('rooms').update({status: 'playing'}).eq('id', myRoomId);
-        deal(); // Taşları dağıt
-        setTimeout(async () => {
-          // Game state'i kaydet ki diğerleri görsün
-          const state = {
-            turn: G.turn, scores: G.scores, tableGroups: G.tableGroups,
-            acildi: G.acildi, okey: G.okey, gosterge: G.gosterge,
-            names: G.names, deck_count: G.deck.length,
-            last_action: Date.now(), last_seat: mySeat, started: true
-          };
-          await supa.from('rooms').update({game_state: state}).eq('id', myRoomId);
-        }, 500);
+        // Seat 0 oyunu başlatır - seed oluştur
+        const seed = Date.now();
+        await supa.from('rooms').update({
+          status: 'playing',
+          game_state: {seed: seed, started: true, names: realNames}
+        }).eq('id', myRoomId);
+        dealWithSeed(seed, realNames);
+      } else if(room.status === 'playing' && room.game_state && room.game_state.seed) {
+        // Diğer oyuncular aynı seed ile dağıtır
+        dealWithSeed(room.game_state.seed, room.game_state.names || realNames);
       } else if(room.status === 'playing') {
-        // Diğer oyuncular kendi taşlarını dağıtır (seed ile senkronize edilecek)
         deal();
-        setMsg('Oyun başladı! Sıra: ' + realNames[0]);
       }
     }
   }, 2000);
   
   waitingInterval = checkInterval;
+}
+
+
+// Seed ile deterministik taş dağıtımı - tüm oyuncular aynı sonucu alır
+function dealWithSeed(seed, names) {
+  if(names) {
+    G.names = names;
+    names.forEach((n,i) => {
+      const el = document.getElementById('n'+i);
+      if(el) el.textContent = n;
+      const sc = document.getElementById('sc-n'+i);
+      if(sc) sc.textContent = n + ':';
+    });
+  }
+  
+  // Seed ile shuffle
+  function seededRandom(seed) {
+    let s = seed;
+    return function() {
+      s = (s * 1664525 + 1013904223) & 0xffffffff;
+      return (s >>> 0) / 0xffffffff;
+    };
+  }
+  
+  function seededShuffle(arr, rng) {
+    const a = [...arr];
+    for(let i = a.length-1; i > 0; i--) {
+      const j = Math.floor(rng() * (i+1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+  
+  const rng = seededRandom(seed);
+  const deck = seededShuffle(makeDeck(), rng);
+  
+  // Gösterge
+  let gostIdx;
+  do { gostIdx = Math.floor(rng() * deck.length); } while(deck[gostIdx].jok);
+  const gosterge = deck.splice(gostIdx, 1)[0];
+  G.gosterge = gosterge;
+  G.okey = getOkey(gosterge);
+  deck.unshift(gosterge);
+  deck.forEach(t => { if(t.jok) { t.c = G.okey.c; t.n = G.okey.n; } });
+  
+  // Taşları dağıt - seat numarasına göre hangi taşların bende olduğunu belirle
+  // Sıra: seat0 (15 taş), seat1 (14), seat2 (14), seat3 (14)
+  const allTiles = deck.slice(); // Gösterge hariç
+  const seat0Tiles = [];
+  const seat1Tiles = [];
+  const seat2Tiles = [];
+  const seat3Tiles = [];
+  
+  // Deck'in sonundan al (pop sırası ile)
+  const tempDeck = [...deck];
+  for(let i=0; i<15; i++) seat0Tiles.push(tempDeck.pop());
+  for(let i=0; i<14; i++) seat1Tiles.push(tempDeck.pop());
+  for(let i=0; i<14; i++) seat2Tiles.push(tempDeck.pop());
+  for(let i=0; i<14; i++) seat3Tiles.push(tempDeck.pop());
+  
+  G.deck = tempDeck;
+  G.grid = emptyGrid();
+  G.opp = [[],[],[]];
+  G.disc = []; G.sel = null; G.phase = 'discard'; G.turn = 0;
+  G.playerDisc = []; G.oppDisc = [[],[],[]]; G.hiddenOkeys = new Set();
+  G.acildi = [false,false,false,false];
+  G.mustUseTile = null; G.mustOpenThisTurn = false;
+  G.tableGroups = []; G.eldenBiten = false; G.okeyBiten = false;
+  acSelIds = [];
+  G.turnStartedOpen = false; G.islenenBuTur = 0; G.preOpenState = null;
+  G.cifteGidiyor = [false,false,false,false]; G.pendingTile = null;
+  G.highestSeri = G.acilisPuan - 1; G.highestCift = 3;
+  G.acilisDegeri = [null,null,null,null];
+  G.roundBonus = [0,0,0,0]; G.roundPenalties = [0,0,0,0];
+  
+  // Kendi taşlarımı ızgaraya yerleştir
+  const myTiles = [seat0Tiles, seat1Tiles, seat2Tiles, seat3Tiles][mySeat] || seat0Tiles;
+  myTiles.forEach((t,i) => {
+    const r = i < 8 ? 0 : 1;
+    const s = i < 8 ? i : i - 8;
+    G.grid[r][s] = t;
+  });
+  
+  // Rakip taşlarını sayı olarak tut (kapalı)
+  const oppTiles = [];
+  for(let i = 0; i < 3; i++) {
+    const seatIdx = (mySeat + i + 1) % 4;
+    const tiles = [seat0Tiles, seat1Tiles, seat2Tiles, seat3Tiles][seatIdx];
+    oppTiles.push(tiles || []);
+  }
+  G.opp = oppTiles.map(t => t.map(x => ({...x})));
+  
+  document.getElementById('el-chip').textContent = 'El: ' + G.curEl + '/' + G.totalEl;
+  document.getElementById('okey-bar').textContent = 'Okey: ' + CLONG[G.okey.c] + ' ' + G.okey.n;
+  
+  renderGosterge();
+  renderAll();
+  setMsg('Oyun başladı! Sıranı bekle.');
+  updTurn(); updBtns(); updAcilisStatus();
+  startTimer();
 }
 
 // Game state yükle
@@ -1275,14 +1377,14 @@ async function initLobby() {
         }
         
         const badge = status === 'playing'
-            ? '<div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:#22aa44;color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:8px;white-space:nowrap;">🎮 Oyunda</div>'
+            ? '<div style="position:absolute;top:-16px;left:50%;transform:translateX(-50%);background:#22aa44;color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:8px;white-space:nowrap;z-index:10;">🎮 Oyunda</div>'
             : doluSayisi > 0
-            ? '<div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:#e8c84a;color:#1a1a00;font-size:9px;font-weight:700;padding:2px 8px;border-radius:8px;white-space:nowrap;">'+doluSayisi+'/4 Oyuncu</div>'
+            ? '<div style="position:absolute;top:-16px;left:50%;transform:translateX(-50%);background:#e8c84a;color:#1a1a00;font-size:9px;font-weight:700;padding:2px 8px;border-radius:8px;white-space:nowrap;z-index:10;">'+doluSayisi+'/4 Oyuncu</div>'
             : '';
         
         const wrapper = document.createElement('div');
         wrapper.className = 'masa-wrapper';
-        wrapper.style.cssText = 'position:relative;padding-bottom:28px;';
+        wrapper.style.cssText = 'position:relative;padding-bottom:28px;padding-top:12px;';
         wrapper.innerHTML = badge +
             '<div class="masa-board"><span>Masa '+i+'</span><small>'+(doluSayisi > 0 ? doluSayisi+'/4' : 'Boş')+'</small></div>' +
             makeSeatBtn(seats[0], 'seat-top', 0) +
