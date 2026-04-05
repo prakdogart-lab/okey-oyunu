@@ -175,6 +175,7 @@ function izleMasa(masaNo) {
   document.getElementById('game').style.display = 'flex';
   document.getElementById('mode-badge').textContent = '👁 İzleme — Masa ' + masaNo;
   document.getElementById('mode-badge').style.display = 'block';
+  document.getElementById('spec-back-btn').style.display = 'block';
   // Istaka ve butonları gizle
   setTimeout(() => {
     document.querySelectorAll('.rack-outer').forEach(el => el.style.visibility='hidden');
@@ -263,6 +264,7 @@ function goToLobby() {
   document.getElementById('end-wrap').classList.remove('show');
   document.getElementById('chat-toggle').style.display = 'none';
   document.getElementById('mode-badge').style.display = 'none';
+  document.getElementById('spec-back-btn').style.display = 'none';
   chatOpen = false;
   document.getElementById('chat-panel').style.transform = 'translateX(100%)';
   currentRoomId = null;
@@ -276,6 +278,7 @@ function lobiyeDon() {
     if(typeof turnTimer !== 'undefined') clearInterval(turnTimer);
     document.getElementById('game').style.display = 'none';
     document.getElementById('mode-badge').style.display = 'none';
+  document.getElementById('spec-back-btn').style.display = 'none';
     document.getElementById('chat-toggle').style.display = 'none';
     chatOpen = false;
     document.getElementById('chat-panel').style.transform = 'translateX(100%)';
@@ -393,7 +396,7 @@ body{font-family:system-ui,sans-serif;background:#062033;color:#fff;overflow:hid
 .disc-opp-v{width:46px;height:66px;border-radius:8px;border:1.5px dashed rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;}
 .disc-pile-opp{width:46px;height:66px;border-radius:8px;border:1.5px dashed rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;}
 .center-area{grid-area:center;display:flex;flex-direction:column;gap:3px;min-height:0;}
-.top-bar{grid-area:top-bar;display:flex;align-items:flex-end;justify-content:space-between;gap:6px;height:auto;min-height:52px;padding-bottom:2px;padding-top:4px;}
+.top-bar{grid-area:top-bar;display:flex;align-items:flex-end;justify-content:space-between;gap:6px;height:auto;min-height:48px;padding-bottom:2px;padding-top:2px;}
 .bot2-area{flex:1;display:flex;flex-direction:row;align-items:flex-end;justify-content:center;gap:15px;padding-top:0;}
 .info-box{background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:5px 8px;font-size:10px;}
 .scores-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;}
@@ -406,17 +409,17 @@ body{font-family:system-ui,sans-serif;background:#062033;color:#fff;overflow:hid
 .ta-col:last-child { border-right: none; padding-right: 0; }
 .ta-head { font-size:11px;color:rgba(255,255,255,.6);text-align:center;font-weight:800;margin-bottom:3px; }
 #table-series, #table-pers, #table-pairs { display: flex; flex-direction: column; gap: 2px; overflow: hidden; flex: 1; border: none !important; padding: 0 !important; }
-.series-row, .per-row { display: flex; justify-content: center; gap: 1px; background: rgba(0,0,0,.2); border-radius: 4px; height: 36px; border: 1px solid transparent; transition: border-color 0.15s, background-color 0.15s; }
-.pair-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; height: 36px; }
+.series-row, .per-row { display: flex; justify-content: center; gap: 1px; background: rgba(0,0,0,.2); border-radius: 4px; height: 44px; border: 1px solid transparent; transition: border-color 0.15s, background-color 0.15s; }
+.pair-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; height: 44px; }
 .pair-cell { display: flex; justify-content: center; gap: 1px; background: rgba(0,0,0,.2); border-radius: 4px; height: 100%; border: 1px solid transparent; transition: border-color 0.15s, background-color 0.15s; }
 .open-group-row { cursor: pointer; background: rgba(0,0,0,.4); border-color: rgba(255,255,255,.15); }
 .open-group-row:hover, .open-group-row.hov { background: rgba(100,255,100,.15) !important; border-color: #88ff88 !important; }
 .has-pair { cursor: pointer; background: rgba(0,0,0,.4); border-color: rgba(255,255,255,.15); }
 .has-pair:hover, .has-pair.hov { background: rgba(100,255,100,.15) !important; border-color: #88ff88 !important; }
-.board-cell { width: 26px; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,.03); border-radius: 3px; }
+.board-cell { width: 30px; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,.03); border-radius: 3px; }
 .tile.board { width: 100%; height: 100%; border-radius: 3px; border-width: 1px; margin: 0; box-shadow: 1px 1px 3px rgba(0,0,0,0.5); }
-.tile.board .tv { font-size: 16px; letter-spacing: -1px; line-height: 1; margin-top: -2px; }
-.tile.board .tc { font-size: 8px; margin-top: 1px; }
+.tile.board .tv { font-size: 19px; letter-spacing: -1px; line-height: 1; margin-top: -2px; }
+.tile.board .tc { font-size: 10px; margin-top: 1px; }
 .msg{background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.1);border-radius:5px;padding:4px 10px;font-size:10px;color:#fff;text-align:center;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .bottom-area{grid-area:bot;display:flex;align-items:flex-end;justify-content:center;gap:15px;}
 .rack-outer{background:linear-gradient(180deg,#dca14c,#c0802c);border:2px solid #eebb77;border-bottom:4px solid #8e5812;border-radius:5px;padding:4px;display:flex;flex-direction:column;gap:3px;box-shadow:inset 0 2px 8px rgba(0,0,0,.5),0 4px 12px rgba(0,0,0,.4); position:relative; z-index:3;}
@@ -476,6 +479,7 @@ body{font-family:system-ui,sans-serif;background:#062033;color:#fff;overflow:hid
 <body>
 <div id="ghost"></div>
 <div id="mode-badge" style="position:fixed;top:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.2);border-radius:12px;padding:3px 12px;font-size:11px;color:rgba(255,255,255,.7);z-index:10;pointer-events:none;display:none;"></div>
+<button id="spec-back-btn" onclick="stopSpectating ? stopSpectating() : lobiyeDon()" style="position:fixed;top:6px;right:10px;z-index:20;padding:6px 16px;background:#cc2200;border:2px solid #ff4422;color:#fff;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;display:none;">🚪 Lobiye Dön</button>
 
 <!-- AUTH EKRANI -->
 <div id="auth-screen" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at center,#1a4a6b,#062033);z-index:2000;padding:20px;">
@@ -662,8 +666,9 @@ body{font-family:system-ui,sans-serif;background:#062033;color:#fff;overflow:hid
       </div>
 
       <div class="info-box" style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">
-        <div style="display:flex;gap:3px;flex-wrap:wrap;justify-content:flex-end;">
+        <div style="display:flex;gap:3px;flex-wrap:wrap;justify-content:flex-end;align-items:center;">
           <div class="chip hl" id="turn-chip">Sıra:—</div><div class="chip" id="timer-chip" style="color:#ffdd55;">⏳--s</div><div class="chip" id="deck-chip">Deste:—</div>
+          <button onclick="lobiyeDon()" style="padding:5px 14px;background:#cc2200;border:2px solid #ff4422;color:#fff;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;">🚪 Lobiye Dön</button>
         </div>
         <div class="msg" id="msg">Yükleniyor...</div>
       </div>
@@ -740,7 +745,7 @@ body{font-family:system-ui,sans-serif;background:#062033;color:#fff;overflow:hid
                 <button class="btn btn-mode" id="btn-cift" onclick="doSort('cift')">Çift</button>
                 <button class="btn btn-mode" id="btn-cifte-git" onclick="doCifteGit()" style="background:#800080;border-color:#a020a0;color:#fff;">Çifte Git</button>
                 <button class="btn" id="geri-al-btn" onclick="doGeriAl()" style="background:#5a0000;border-color:#cc2200;color:#ffaaaa;display:none">Geri Al (+81)</button>
-                <button class="btn" onclick="lobiyeDon()" style="background:#1a3a6a;border-color:#3366cc;color:#aaccff;font-size:11px;">🚪 Lobiye</button>
+
             </div>
 
             <div class="rack-outer">
