@@ -2,8 +2,7 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
 // ═══════════════════════════════════
 // GERÇEK ZAMANLI ÇOK OYUNCULU SİSTEM
 // ═══════════════════════════════════
@@ -90,23 +89,42 @@ function subscribeToRoom(roomId) {
 
 // Oda güncellemesi geldi
 function handleRoomUpdate(room) {
-  // Koltukları güncelle
   updateSeatDisplay(room);
   
-  // 4 oyuncu doldu mu?
-  const seats = [room.seat0_user, room.seat1_user, room.seat2_user, room.seat3_user];
-  const filledSeats = seats.filter(s => s && !s.startsWith('bot-')).length;
+  const names = [room.seat0_name, room.seat1_name, room.seat2_name, room.seat3_name]
+    .map((n,i) => n || ('Oyuncu '+(i+1)));
   
-  if(room.status === 'playing' && room.game_state) {
-    // Oyun başladı - state'i yükle
-    if(!G.deck || G.deck.length === 0) {
-      loadGameState(room.game_state);
+  // Kendi koltuğum boşaltıldı mı? (admin tarafından atıldım)
+  if(isMultiplayer && mySeat >= 0) {
+    const myCurrentSeat = room['seat' + mySeat + '_user'];
+    const myId = currentUser ? currentUser.id : ('guest-' + Date.now());
+    // Koltuk boş ya da başkasına verildi
+    if(!myCurrentSeat || (myCurrentSeat !== myId && !myCurrentSeat.startsWith('bot-'))) {
+      // Atıldım - oyunu kapat
+      if(typeof turnTimer !== 'undefined') clearInterval(turnTimer);
+      alert('Masadan çıkarıldınız!');
+      window.close();
+      return;
     }
   }
   
-  // Hamle geldi mi?
-  if(room.game_state && isMultiplayer && G.turn !== mySeat) {
-    loadGameState(room.game_state);
+  // Oyun başladı ve seed var
+  if(room.status === 'playing' && room.game_state && room.game_state.seed) {
+    if(!G.deck || G.deck.length === 0) {
+      hideWaitingScreen();
+      G.names = names;
+      names.forEach((n,i) => {
+        const el = document.getElementById('n'+i); if(el) el.textContent = n;
+        const sc = document.getElementById('sc-n'+i); if(sc) sc.textContent = n+':';
+      });
+      dealWithSeed(room.game_state.seed, names);
+    }
+  }
+  
+  // Status 'finished' - oyun bitti
+  if(room.status === 'finished') {
+    if(typeof turnTimer !== 'undefined') clearInterval(turnTimer);
+    setMsg('Oyun sona erdi.');
   }
 }
 
@@ -224,7 +242,7 @@ async function startMultiplayerGame(masaNo) {
   showWaitingScreen(masaNo, 1);
   doResize();
   
-  // Oda değişikliklerini izle - 4 oyuncu dolunca başla
+  // Oda değişikliklerini izle - sadece bekleme ekranını güncelle
   const checkInterval = setInterval(async () => {
     const {data: room} = await supa.from('rooms').select('*').eq('id', myRoomId).single();
     if(!room) { clearInterval(checkInterval); return; }
@@ -236,45 +254,36 @@ async function startMultiplayerGame(masaNo) {
     // Koltuk göstergelerini güncelle
     seats.forEach((s, i) => {
       const ind = document.getElementById('seat-ind-' + i);
-      if(ind) {
-        if(s) {
-          ind.style.background = 'rgba(232,200,74,.2)';
-          ind.style.borderColor = '#e8c84a';
-          ind.innerHTML = `<span style="font-size:20px;">${i === mySeat ? '😊' : '👤'}</span><span style="font-size:9px;color:#e8c84a;">${names[i] || 'Oyuncu'}</span>`;
-        }
+      if(ind && s) {
+        ind.style.background = 'rgba(232,200,74,.2)';
+        ind.style.borderColor = '#e8c84a';
+        ind.innerHTML = `<span style="font-size:20px;">${i === mySeat ? '😊' : '👤'}</span><span style="font-size:9px;color:#e8c84a;">${names[i] || 'Oyuncu'}</span>`;
       }
     });
     
-    if(filledCount === 4 || room.status === 'playing') {
+    if(filledCount === 4 && mySeat === 0 && room.status !== 'playing') {
+      // Seat 0: oyunu başlat - seed üret ve Supabase'e yaz
+      // handleRoomUpdate diğerlerini tetikleyecek
       clearInterval(checkInterval);
+      const realNames = names.map((n,i) => n || ('Oyuncu '+(i+1)));
+      const seed = Date.now();
+      await supa.from('rooms').update({
+        status: 'playing',
+        game_state: {seed: seed, started: true, names: realNames}
+      }).eq('id', myRoomId);
+      // Seat 0 kendi dealWithSeed'ini çağırır
       hideWaitingScreen();
-      
-      const realNames = names.map((n,i) => n || ('Oyuncu ' + (i+1)));
       G.names = realNames;
-      // İsimleri güncelle
       realNames.forEach((n,i) => {
-        const el = document.getElementById('n'+i);
-        if(el) el.textContent = n;
-        const scEl = document.getElementById('sc-n'+i);
-        if(scEl) scEl.textContent = n + ':';
+        const el = document.getElementById('n'+i); if(el) el.textContent = n;
+        const sc = document.getElementById('sc-n'+i); if(sc) sc.textContent = n+':';
       });
-      
-      if(mySeat === 0 && room.status !== 'playing') {
-        // Seat 0 oyunu başlatır - seed oluştur
-        const seed = Date.now();
-        await supa.from('rooms').update({
-          status: 'playing',
-          game_state: {seed: seed, started: true, names: realNames}
-        }).eq('id', myRoomId);
-        dealWithSeed(seed, realNames);
-      } else if(room.status === 'playing' && room.game_state && room.game_state.seed) {
-        // Diğer oyuncular aynı seed ile dağıtır
-        dealWithSeed(room.game_state.seed, room.game_state.names || realNames);
-      } else if(room.status === 'playing') {
-        deal();
-      }
+      dealWithSeed(seed, realNames);
+    } else if(room.status === 'playing') {
+      clearInterval(checkInterval);
+      // handleRoomUpdate zaten tetiklenecek
     }
-  }, 2000);
+  }, 1000);
   
   waitingInterval = checkInterval;
 }
