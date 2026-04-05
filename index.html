@@ -13,6 +13,7 @@ const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
 
 let currentUser = null, currentProfile = null, currentRoomId = null;
 let chatSub = null, chatOpen = false, guestName = '';
+let isSpectating = false;
 let gameMode = 'online';
 let currentMasaNo = 1;
 
@@ -171,20 +172,51 @@ function pickMod(mod) {
 function izleMasa(masaNo) {
   currentMasaNo = masaNo;
   currentRoomId = 'masa-' + masaNo;
+  isSpectating = true;
   document.getElementById('lobby').style.display = 'none';
   document.getElementById('game').style.display = 'flex';
   document.getElementById('mode-badge').textContent = '👁 İzleme — Masa ' + masaNo;
   document.getElementById('mode-badge').style.display = 'block';
-  document.getElementById('spec-back-btn').style.display = 'block';
   // Istaka ve butonları gizle
   setTimeout(() => {
     document.querySelectorAll('.rack-outer').forEach(el => el.style.visibility='hidden');
     document.querySelectorAll('.acts-col').forEach(el => el.style.visibility='hidden');
-  }, 100);
+    // Boş koltuk varsa Otur butonu göster
+    showSpectatorOturBtn();
+  }, 200);
   subscribeToChatRoom(currentRoomId);
   document.getElementById('chat-toggle').style.display = 'flex';
-  setMsg('İzleme modundasın. Sohbete katılabilirsin.');
+  setMsg('İzleme modundasın. Boş koltuğa oturabilirsin.');
   doResize();
+}
+
+function showSpectatorOturBtn() {
+  // Mevcut oyuncu sayısını kontrol et (şimdilik basit versiyon - her zaman göster)
+  let oturDiv = document.getElementById('spec-otur-bar');
+  if(!oturDiv) {
+    oturDiv = document.createElement('div');
+    oturDiv.id = 'spec-otur-bar';
+    oturDiv.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:100;display:flex;gap:10px;align-items:center;background:rgba(0,0,0,.85);border:2px solid #e8c84a;border-radius:12px;padding:10px 20px;';
+    oturDiv.innerHTML = '<span style="font-size:13px;color:#e8c84a;font-weight:700;">Boş koltuk var!</span><button onclick="izlemeciyiOturt()" style="padding:8px 20px;background:#e8c84a;color:#1a1a00;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;">▶ Masaya Otur</button><button onclick="kaldirOturBar()" style="padding:8px 12px;background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:8px;font-size:12px;cursor:pointer;">İzlemeye Devam Et</button>';
+    document.body.appendChild(oturDiv);
+  }
+  oturDiv.style.display = 'flex';
+}
+
+function kaldirOturBar() {
+  const el = document.getElementById('spec-otur-bar');
+  if(el) el.style.display = 'none';
+}
+
+function izlemeciyiOturt() {
+  // İzleyici oyuna katılıyor
+  kaldirOturBar();
+  isSpectating = false;
+  document.getElementById('mode-badge').textContent = '🌐 Çevrimiçi — Masa ' + currentMasaNo;
+  // Oyun zaten çalışıyor, sadece ıstakayı ve butonları göster
+  document.querySelectorAll('.rack-outer').forEach(el => el.style.visibility='visible');
+  document.querySelectorAll('.acts-col').forEach(el => el.style.visibility='visible');
+  setMsg('Masaya oturdunuz! Sıranızı bekleyin...');
 }
 
 // SOHBET
@@ -264,7 +296,9 @@ function goToLobby() {
   document.getElementById('end-wrap').classList.remove('show');
   document.getElementById('chat-toggle').style.display = 'none';
   document.getElementById('mode-badge').style.display = 'none';
-  document.getElementById('spec-back-btn').style.display = 'none';
+  isSpectating = false;
+  const oturBar = document.getElementById('spec-otur-bar');
+  if(oturBar) oturBar.style.display = 'none';
   chatOpen = false;
   document.getElementById('chat-panel').style.transform = 'translateX(100%)';
   currentRoomId = null;
@@ -278,7 +312,9 @@ function lobiyeDon() {
     if(typeof turnTimer !== 'undefined') clearInterval(turnTimer);
     document.getElementById('game').style.display = 'none';
     document.getElementById('mode-badge').style.display = 'none';
-  document.getElementById('spec-back-btn').style.display = 'none';
+  isSpectating = false;
+  const oturBar = document.getElementById('spec-otur-bar');
+  if(oturBar) oturBar.style.display = 'none';
     document.getElementById('chat-toggle').style.display = 'none';
     chatOpen = false;
     document.getElementById('chat-panel').style.transform = 'translateX(100%)';
@@ -479,7 +515,6 @@ body{font-family:system-ui,sans-serif;background:#062033;color:#fff;overflow:hid
 <body>
 <div id="ghost"></div>
 <div id="mode-badge" style="position:fixed;top:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.2);border-radius:12px;padding:3px 12px;font-size:11px;color:rgba(255,255,255,.7);z-index:10;pointer-events:none;display:none;"></div>
-<button id="spec-back-btn" onclick="stopSpectating ? stopSpectating() : lobiyeDon()" style="position:fixed;top:6px;right:10px;z-index:20;padding:6px 16px;background:#cc2200;border:2px solid #ff4422;color:#fff;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;display:none;">🚪 Lobiye Dön</button>
 
 <!-- AUTH EKRANI -->
 <div id="auth-screen" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at center,#1a4a6b,#062033);z-index:2000;padding:20px;">
@@ -668,7 +703,7 @@ body{font-family:system-ui,sans-serif;background:#062033;color:#fff;overflow:hid
       <div class="info-box" style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">
         <div style="display:flex;gap:3px;flex-wrap:wrap;justify-content:flex-end;align-items:center;">
           <div class="chip hl" id="turn-chip">Sıra:—</div><div class="chip" id="timer-chip" style="color:#ffdd55;">⏳--s</div><div class="chip" id="deck-chip">Deste:—</div>
-          <button onclick="lobiyeDon()" style="padding:5px 14px;background:#cc2200;border:2px solid #ff4422;color:#fff;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;">🚪 Lobiye Dön</button>
+          <button onclick="lobiyeDon()" style="padding:5px 14px;background:#cc2200;border:2px solid #ff4422;color:#fff;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;">🚪 Masadan Çık</button>
         </div>
         <div class="msg" id="msg">Yükleniyor...</div>
       </div>
@@ -824,6 +859,10 @@ function initLobby() {
 
 function openSetup(masaNo) {
     currentMasaNo = masaNo || 1;
+    isSpectating = false;
+    // Izleme otur barını gizle
+    const oturBar = document.getElementById('spec-otur-bar');
+    if(oturBar) oturBar.style.display = 'none';
     if(currentUser && currentProfile) document.getElementById('pname').value = currentProfile.username;
     else if(guestName) document.getElementById('pname').value = guestName;
     document.getElementById('setup').style.display = 'flex';
