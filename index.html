@@ -634,7 +634,24 @@ function saveGameStats() {
 }
 
 function goToLobby() {
-  document.getElementById('game').style.display = 'none'; document.getElementById('end-wrap').classList.remove('show'); document.getElementById('chat-toggle').style.display = 'none'; document.getElementById('mode-badge').style.display = 'none'; isSpectating = false; updateMasaDurum(null); const oturBar = document.getElementById('spec-otur-bar'); if(oturBar) oturBar.style.display = 'none'; chatOpen = false; document.getElementById('chat-panel').style.transform = 'translateX(100%)'; currentRoomId = null; if(chatSub) { supa.removeChannel(chatSub); chatSub = null; } document.getElementById('lobby').style.display = 'flex'; if(currentUser) loadProfile().then(() => showLobby()); else showLobby();
+  document.getElementById('game').style.display = 'none';
+  document.getElementById('end-wrap').classList.remove('show');
+  document.getElementById('chat-toggle').style.display = 'none';
+  document.getElementById('mode-badge').style.display = 'none';
+  isSpectating = false;
+  updateMasaDurum(null);
+  const oturBar = document.getElementById('spec-otur-bar');
+  if(oturBar) oturBar.style.display = 'none';
+  chatOpen = false;
+  document.getElementById('chat-panel').style.transform = 'translateX(100%)';
+  currentRoomId = null;
+  if(chatSub) { supa.removeChannel(chatSub); chatSub = null; }
+  
+  // YENİ: URL'Yİ SESSİZCE TEMİZLE
+  window.history.replaceState({}, document.title, window.location.pathname);
+  
+  document.getElementById('lobby').style.display = 'flex';
+  if(currentUser) loadProfile().then(() => showLobby()); else showLobby();
 }
 
 async function lobiyeDon() {
@@ -684,6 +701,11 @@ async function lobiyeDon() {
     chatOpen = false;
     document.getElementById('chat-panel').style.transform = 'translateX(100%)';
     currentRoomId = null;
+    
+    // ---------------------------------------------------------
+    // YENİ EKLENEN KISIM: Sayfayı yenilemeden URL'yi temizler
+    window.history.replaceState({}, document.title, window.location.pathname);
+    // ---------------------------------------------------------
     
     document.getElementById('lobby').style.display = 'flex';
     if(currentUser) loadProfile().then(() => { showLobby(); showGeriDonBtn(lastMasaNo); });
@@ -1240,6 +1262,10 @@ async function initLobby() {
     
     grid.innerHTML = '';
     
+    // Kendi ID'mizi alıyoruz (Hangi masada olduğumuzu bulmak için)
+    let myUserId = currentUser ? currentUser.id : localStorage.getItem('81okey_guest_id');
+    let currentlyPlayingMasa = null;
+    
     for(let i=1; i<=40; i++) {
         const room = roomMap[i];
         const seats = room ? [
@@ -1251,15 +1277,17 @@ async function initLobby() {
         
         const doluSayisi = seats.filter(s => s.user && !s.user.startsWith('bot-')).length;
         
-        // ÇÖP TOPLAYICI (GARBAGE COLLECTOR) - GELİŞMİŞ ZOMBİ TESPİTİ
+        // Hangi masada oynadığımızı tespit edelim
+        if (room && (room.seat0_user === myUserId || room.seat1_user === myUserId || room.seat2_user === myUserId || room.seat3_user === myUserId)) {
+            currentlyPlayingMasa = room.masa_no;
+        }
+
+        // ÇÖP TOPLAYICI (GARBAGE COLLECTOR)
         const now = Date.now();
         const gameState = room ? room.game_state : null;
         const lastAction = gameState && gameState.last_action ? gameState.last_action : now;
-        
-        // YENİ GÜNCELLEME: Eğer 120 saniye (120.000 ms) boyunca kimse taş atmamışsa masa donmuştur
         const isFrozen = (now - lastAction) > 120000; 
 
-        // Masada hiç insan yoksa VEYA masa zombiye dönmüşse (isFrozen)
         if (room && room.status === 'playing' && (doluSayisi === 0 || isFrozen)) {
             supa.from('rooms').update({
                 status: 'waiting', game_state: null, current_turn: 0,
@@ -1267,7 +1295,6 @@ async function initLobby() {
                 seat2_user: null, seat2_name: null, seat3_user: null, seat3_name: null
             }).eq('id', room.id).then(()=>{});
             
-            // Lobiyi açan kişiye masayı anında boş göster
             room.status = 'waiting';
             for(let k=0; k<4; k++) { seats[k].user = null; seats[k].name = null; }
         }
@@ -1305,6 +1332,9 @@ async function initLobby() {
             '<div style="position:absolute;bottom:-22px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.7);font-size:10px;padding:3px 10px;border-radius:10px;cursor:pointer;white-space:nowrap;" onclick="izleMasaYeniSekme('+i+')">👁 İzle</div>';
         grid.appendChild(wrapper);
     }
+    
+    // YENİ: Masaların taranması bittikten sonra durumu profile yansıt
+    updateMasaDurum(currentlyPlayingMasa);
     
     if(!window._lobiRefreshInterval) {
         window._lobiRefreshInterval = setInterval(() => {
