@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
-// ── OYUN MODU ──
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>/ ── OYUN MODU ──
 let gameMode = 'online'; // 'online' veya 'bot'
 let currentMasaNo = null;
 let isSpectating = false;
@@ -155,8 +155,7 @@ async function startOnlineGame() {
 // Orijinal startGame'in önüne geçiyoruz
 const _origStartGame = startGame;
 
-</script>
-<script>
+
 // ═══ SUPABASE ═══
 const SUPA_URL = 'https://nflxrfolzqecdxcptdmu.supabase.co';
 const SUPA_KEY = 'sb_publishable_EKiFP6Z_nU5Lx9b78hHMPQ_ncdM6ZKx';
@@ -1013,9 +1012,6 @@ function initLobby() {
 // Sayfa yüklenince lobiyi oluştur
 // initLobby auth sonrası çağrılıyor
 
-function openSetup() {
-    document.getElementById('setup').style.display = 'flex';
-}
 function closeSetup() {
     document.getElementById('setup').style.display = 'none';
 }
