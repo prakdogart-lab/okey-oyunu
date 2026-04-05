@@ -385,12 +385,6 @@ function updateMasaDurum(masaNo) {
   else { el.style.display = 'none'; }
 }
 
-function updateMasaDurum(masaNo) {
-  const el = document.getElementById('lobby-masa-durum');
-  if(!el) return;
-  if(masaNo) { el.textContent = '🎮 Masa ' + masaNo + '\'de oynuyor'; el.style.display = 'block'; }
-  else { el.style.display = 'none'; }
-}
 function showLobby() {
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('lobby').style.display = 'flex';
@@ -1326,19 +1320,23 @@ function startGame(){
   
   doResize(); setTimeout(doResize, 50);
   document.getElementById('disc-player').addEventListener('click',()=>{if(G.turn===0&&G.phase==='discard'&&G.sel) doDiscard(G.sel);});
-  if(gameMode === 'online' && currentUser) {
-    currentRoomId = 'masa-' + (currentMasaNo||1);
-    document.getElementById('mode-badge').textContent = '🌐 Çevrimiçi — Masa ' + (currentMasaNo||1);
-    document.getElementById('mode-badge').style.display = 'block';
+
+  const badge = document.getElementById('mode-badge');
+
+  if(gameMode === 'online' && (currentUser || guestName)) {
+    // Çok oyunculu mod - bekleme ekranı göster
+    badge.textContent = '🌐 Çevrimiçi — Masa ' + (currentMasaNo||1);
+    badge.style.display = 'block';
     updateMasaDurum(currentMasaNo);
-    subscribeToChatRoom(currentRoomId);
-    document.getElementById('chat-toggle').style.display = 'flex';
+    startMultiplayerGame(currentMasaNo);
+    return; // deal() startMultiplayerGame içinden çağrılacak
   } else {
+    // Bot modu
     currentRoomId = 'local-' + Date.now();
-    document.getElementById('mode-badge').textContent = '🤖 Tek Başına — XP Kazanılmaz';
-    document.getElementById('mode-badge').style.display = 'block';
+    badge.textContent = '🤖 Tek Başına — XP Kazanılmaz';
+    badge.style.display = 'block';
+    deal();
   }
-  deal();
 }
 
 function deal(){
