@@ -3,7 +3,280 @@
 <head>
 <meta charset="UTF-8">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
+<script>// ═══════════════════════════════════
+// GERÇEK ZAMANLI ÇOK OYUNCULU SİSTEM
+// ═══════════════════════════════════
+
+let myRoomId = null;      // Supabase room UUID
+let mySeat = -1;          // Benim koltuk numaram (0-3)
+let roomSub = null;       // Realtime subscription
+let waitingInterval = null;
+let isMultiplayer = false;
+
+// Masaya otur - Supabase'de koltuk al
+async function joinRoom(masaNo) {
+  // Masa bul
+  const {data: rooms, error} = await supa
+    .from('rooms')
+    .select('*')
+    .eq('masa_no', masaNo)
+    .single();
+  
+  if(error || !rooms) {
+    console.error('Masa bulunamadı:', error);
+    return false;
+  }
+  
+  myRoomId = rooms.id;
+  const myName = (currentUser && currentProfile) ? currentProfile.username : (guestName || 'Misafir');
+  const myUserId = currentUser ? currentUser.id : ('guest-' + Date.now());
+  
+  // Boş koltuk bul
+  let bosSeat = -1;
+  for(let i = 0; i < 4; i++) {
+    if(!rooms['seat' + i + '_user']) { bosSeat = i; break; }
+  }
+  
+  if(bosSeat === -1) {
+    alert('Masa dolu!');
+    return false;
+  }
+  
+  mySeat = bosSeat;
+  
+  // Koltuğu al
+  const update = {};
+  update['seat' + bosSeat + '_user'] = myUserId;
+  update['seat' + bosSeat + '_name'] = myName;
+  
+  const {error: updateError} = await supa
+    .from('rooms')
+    .update(update)
+    .eq('id', myRoomId);
+  
+  if(updateError) {
+    console.error('Koltuk alınamadı:', updateError);
+    return false;
+  }
+  
+  console.log('Koltuk alındı:', bosSeat);
+  return true;
+}
+
+// Masadaki oyuncuları izle
+function subscribeToRoom(roomId) {
+  if(roomSub) supa.removeChannel(roomSub);
+  
+  roomSub = supa.channel('room-' + roomId)
+    .on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public', 
+      table: 'rooms',
+      filter: 'id=eq.' + roomId
+    }, payload => {
+      handleRoomUpdate(payload.new);
+    })
+    .subscribe();
+}
+
+// Oda güncellemesi geldi
+function handleRoomUpdate(room) {
+  // Koltukları güncelle
+  updateSeatDisplay(room);
+  
+  // 4 oyuncu doldu mu?
+  const seats = [room.seat0_user, room.seat1_user, room.seat2_user, room.seat3_user];
+  const filledSeats = seats.filter(s => s && !s.startsWith('bot-')).length;
+  
+  if(room.status === 'playing' && room.game_state) {
+    // Oyun başladı - state'i yükle
+    if(!G.deck || G.deck.length === 0) {
+      loadGameState(room.game_state);
+    }
+  }
+  
+  // Hamle geldi mi?
+  if(room.game_state && isMultiplayer && G.turn !== mySeat) {
+    loadGameState(room.game_state);
+  }
+}
+
+// Koltuk göstergelerini güncelle
+function updateSeatDisplay(room) {
+  const names = [
+    room.seat0_name || '— Boş —',
+    room.seat1_name || '— Boş —', 
+    room.seat2_name || '— Boş —',
+    room.seat3_name || '— Boş —'
+  ];
+  
+  // Bot değilse gerçek oyuncu adını göster
+  for(let i = 1; i < 4; i++) {
+    const nameEl = document.getElementById('n' + i);
+    if(nameEl && names[i] && names[i] !== '— Boş —') {
+      nameEl.textContent = names[i];
+    }
+  }
+}
+
+// Game state'i Supabase'e kaydet (sadece sıra bende ise)
+async function saveGameState() {
+  if(!isMultiplayer || !myRoomId) return;
+  
+  const state = {
+    grid: G.grid,
+    opp: G.opp,
+    deck_count: G.deck.length,
+    disc: G.disc,
+    turn: G.turn,
+    phase: G.phase,
+    scores: G.scores,
+    tableGroups: G.tableGroups,
+    acildi: G.acildi,
+    okey: G.okey,
+    gosterge: G.gosterge,
+    names: G.names,
+    last_action: Date.now(),
+    last_seat: mySeat
+  };
+  
+  await supa.from('rooms').update({
+    game_state: state,
+    current_turn: G.turn
+  }).eq('id', myRoomId);
+}
+
+// Bekleme ekranı göster
+function showWaitingScreen(masaNo, currentCount) {
+  const existing = document.getElementById('waiting-screen');
+  if(existing) existing.remove();
+  
+  const div = document.createElement('div');
+  div.id = 'waiting-screen';
+  div.style.cssText = 'position:fixed;inset:0;background:rgba(6,32,51,.95);z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;';
+  div.innerHTML = `
+    <div style="font-size:48px;">⏳</div>
+    <div style="font-size:24px;font-weight:900;color:#e8c84a;">Masa ${masaNo}</div>
+    <div style="font-size:16px;color:rgba(255,255,255,.8);">Diğer oyuncular bekleniyor...</div>
+    <div style="display:flex;gap:15px;margin:10px 0;" id="seat-indicators">
+      ${[0,1,2,3].map(i => `
+        <div id="seat-ind-${i}" style="width:60px;height:60px;border-radius:50%;background:rgba(255,255,255,.1);border:2px solid rgba(255,255,255,.2);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:10px;color:rgba(255,255,255,.5);">
+          <span style="font-size:20px;">${i === mySeat ? '😊' : '?'}</span>
+          <span>${i === mySeat ? 'Sen' : 'Boş'}</span>
+        </div>
+      `).join('')}
+    </div>
+    <div style="font-size:13px;color:rgba(255,255,255,.5);">4 oyuncu dolunca oyun otomatik başlar</div>
+    <button onclick="leaveRoom()" style="padding:10px 24px;background:rgba(255,0,0,.2);border:1px solid rgba(255,0,0,.4);color:#ff8888;border-radius:8px;font-size:13px;cursor:pointer;margin-top:10px;">Masadan Ayrıl</button>
+  `;
+  document.body.appendChild(div);
+}
+
+function hideWaitingScreen() {
+  const el = document.getElementById('waiting-screen');
+  if(el) el.remove();
+}
+
+// Masadan ayrıl
+async function leaveRoom() {
+  if(!myRoomId || mySeat < 0) return;
+  
+  const update = {};
+  update['seat' + mySeat + '_user'] = null;
+  update['seat' + mySeat + '_name'] = null;
+  
+  await supa.from('rooms').update(update).eq('id', myRoomId);
+  
+  myRoomId = null; mySeat = -1; isMultiplayer = false;
+  hideWaitingScreen();
+  
+  if(roomSub) { supa.removeChannel(roomSub); roomSub = null; }
+  window.close(); // Yeni sekme ise kapat
+}
+
+// Oyun başlatma - çok oyunculu mod
+async function startMultiplayerGame(masaNo) {
+  const joined = await joinRoom(masaNo);
+  if(!joined) return;
+  
+  isMultiplayer = true;
+  subscribeToRoom(myRoomId);
+  subscribeToChatRoom('masa-' + masaNo);
+  document.getElementById('chat-toggle').style.display = 'flex';
+  
+  // Bekleme ekranı
+  document.getElementById('setup').style.display = 'none';
+  document.getElementById('game').style.display = 'flex';
+  showWaitingScreen(masaNo, 1);
+  doResize();
+  
+  // Oda değişikliklerini izle - 4 oyuncu dolunca başla
+  const checkInterval = setInterval(async () => {
+    const {data: room} = await supa.from('rooms').select('*').eq('id', myRoomId).single();
+    if(!room) { clearInterval(checkInterval); return; }
+    
+    const seats = [room.seat0_user, room.seat1_user, room.seat2_user, room.seat3_user];
+    const names = [room.seat0_name, room.seat1_name, room.seat2_name, room.seat3_name];
+    const filledCount = seats.filter(s => s).length;
+    
+    // Koltuk göstergelerini güncelle
+    seats.forEach((s, i) => {
+      const ind = document.getElementById('seat-ind-' + i);
+      if(ind) {
+        if(s) {
+          ind.style.background = 'rgba(232,200,74,.2)';
+          ind.style.borderColor = '#e8c84a';
+          ind.innerHTML = `<span style="font-size:20px;">${i === mySeat ? '😊' : '👤'}</span><span style="font-size:9px;color:#e8c84a;">${names[i] || 'Oyuncu'}</span>`;
+        }
+      }
+    });
+    
+    if(filledCount === 4 || room.status === 'playing') {
+      clearInterval(checkInterval);
+      hideWaitingScreen();
+      
+      // İlk oturan başlatır (seat 0)
+      if(mySeat === 0 && room.status !== 'playing') {
+        // Oyunu başlat ve state'i kaydet
+        G.names = names.map((n,i) => n || ('Oyuncu ' + (i+1)));
+        await supa.from('rooms').update({status: 'playing'}).eq('id', myRoomId);
+        // startGame zaten çağrıldı, state kaydet
+        setTimeout(saveGameState, 500);
+      } else if(room.status === 'playing' && room.game_state) {
+        // Diğer oyuncular state'i yükle
+        G.names = names.map((n,i) => n || ('Oyuncu ' + (i+1)));
+        loadGameState(room.game_state);
+      }
+    }
+  }, 2000);
+  
+  waitingInterval = checkInterval;
+}
+
+// Game state yükle
+function loadGameState(state) {
+  if(!state || !state.turn) return;
+  
+  // Sadece kendi ıstakamı görüyorum, diğerleri gizli
+  if(state.grid && mySeat === 0) G.grid = state.grid;
+  if(state.turn !== undefined) G.turn = state.turn;
+  if(state.scores) G.scores = state.scores;
+  if(state.tableGroups) G.tableGroups = state.tableGroups;
+  if(state.acildi) G.acildi = state.acildi;
+  if(state.names) {
+    G.names = state.names;
+    state.names.forEach((n,i) => {
+      const el = document.getElementById('n'+i);
+      if(el) el.textContent = n;
+    });
+  }
+  
+  renderAll();
+  updTurn();
+  updBtns();
+}
+
+
 // ═══════════════════════════════════
 // SUPABASE + AUTH + SOHBET + SISTEM
 // ═══════════════════════════════════
@@ -297,6 +570,7 @@ function goToLobby() {
   document.getElementById('chat-toggle').style.display = 'none';
   document.getElementById('mode-badge').style.display = 'none';
   isSpectating = false;
+  updateMasaDurum(null);
   const oturBar = document.getElementById('spec-otur-bar');
   if(oturBar) oturBar.style.display = 'none';
   chatOpen = false;
@@ -313,6 +587,7 @@ function lobiyeDon() {
     document.getElementById('game').style.display = 'none';
     document.getElementById('mode-badge').style.display = 'none';
   isSpectating = false;
+  updateMasaDurum(null);
   const oturBar = document.getElementById('spec-otur-bar');
   if(oturBar) oturBar.style.display = 'none';
     document.getElementById('chat-toggle').style.display = 'none';
@@ -326,13 +601,54 @@ function lobiyeDon() {
 
 // SAYFA YÜKLENINCE
 window.addEventListener('load', async () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const masaParam = urlParams.get('masa');
+  const modeParam = urlParams.get('mode');
+  
+  // Oturum kontrolü
   const {data:{session}} = await supa.auth.getSession();
   if(session) {
     currentUser = session.user;
     await loadProfile();
-    showLobby();
+  } else {
+    // Misafir adını localStorage'dan al
+    const savedGuest = localStorage.getItem('81okey_guest');
+    if(savedGuest) guestName = savedGuest;
   }
-  // session yoksa auth ekranı görünür
+  
+  // URL'de masa parametresi varsa direkt oyuna/izlemeye gir
+  if(masaParam) {
+    currentMasaNo = parseInt(masaParam);
+    gameMode = localStorage.getItem('81okey_gamemode') || modeParam || 'online';
+    
+    // Auth ekranını gizle, lobi de gizli kalsın
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('lobby').style.display = 'none';
+    
+    if(modeParam === 'izle') {
+      // İzleme modu
+      document.getElementById('game').style.display = 'flex';
+      setTimeout(() => izleMasa(currentMasaNo), 100);
+    } else {
+      // Oyun modu - setup ekranını göster
+      document.getElementById('game').style.display = 'none';
+      if(currentUser || guestName) {
+        // Setup'ı göster
+        document.getElementById('setup').style.display = 'flex';
+        if(currentUser && currentProfile) document.getElementById('pname').value = currentProfile.username;
+        else if(guestName) document.getElementById('pname').value = guestName;
+      } else {
+        // Giriş yapılmamış - auth göster
+        document.getElementById('auth-screen').style.display = 'flex';
+      }
+    }
+  } else {
+    // Normal lobi açılışı
+    if(currentUser || guestName) {
+      showLobby();
+    }
+    // session/guest yoksa auth ekranı görünür
+  }
 });
 
 </script>
@@ -527,14 +843,14 @@ body{font-family:system-ui,sans-serif;background:#062033;color:#fff;overflow:hid
     </div>
     <div id="auth-error" style="color:#ff6666;font-size:12px;text-align:center;margin-bottom:8px;min-height:16px;"></div>
     <div id="auth-giris">
-      <input id="giris-email" type="email" placeholder="E-posta adresi" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.4);color:#fff;font-size:14px;margin-bottom:12px;outline:none;box-sizing:border-box;">
-      <input id="giris-sifre" type="password" placeholder="Şifre" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.4);color:#fff;font-size:14px;margin-bottom:12px;outline:none;box-sizing:border-box;">
+      <input id="giris-email" type="email" placeholder="E-posta adresi" onkeydown="if(event.key==='Enter')document.getElementById('giris-sifre').focus()" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.4);color:#fff;font-size:14px;margin-bottom:12px;outline:none;box-sizing:border-box;">
+      <input id="giris-sifre" type="password" placeholder="Şifre" onkeydown="if(event.key==='Enter')doGiris()" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.4);color:#fff;font-size:14px;margin-bottom:12px;outline:none;box-sizing:border-box;">
       <button onclick="doGiris()" style="width:100%;padding:12px;background:#e8c84a;color:#1a1a00;border:none;border-radius:8px;font-size:15px;font-weight:800;cursor:pointer;margin-bottom:10px;">Giriş Yap</button>
     </div>
     <div id="auth-kayit" style="display:none;">
       <input id="kayit-kullanici" type="text" placeholder="Kullanıcı adı" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.4);color:#fff;font-size:14px;margin-bottom:12px;outline:none;box-sizing:border-box;">
       <input id="kayit-email" type="email" placeholder="E-posta adresi" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.4);color:#fff;font-size:14px;margin-bottom:12px;outline:none;box-sizing:border-box;">
-      <input id="kayit-sifre" type="password" placeholder="Şifre (min 6 karakter)" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.4);color:#fff;font-size:14px;margin-bottom:12px;outline:none;box-sizing:border-box;">
+      <input id="kayit-sifre" type="password" placeholder="Şifre (min 6 karakter)" onkeydown="if(event.key==='Enter')doKayit()" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.4);color:#fff;font-size:14px;margin-bottom:12px;outline:none;box-sizing:border-box;">
       <button onclick="doKayit()" style="width:100%;padding:12px;background:#e8c84a;color:#1a1a00;border:none;border-radius:8px;font-size:15px;font-weight:800;cursor:pointer;margin-bottom:10px;">Üye Ol</button>
     </div>
     <div style="display:flex;align-items:center;gap:10px;margin:12px 0;color:rgba(255,255,255,.3);font-size:12px;">
@@ -575,6 +891,7 @@ body{font-family:system-ui,sans-serif;background:#062033;color:#fff;overflow:hid
         <div>
           <div id="lobby-username" style="font-size:13px;font-weight:700;color:#fff;">...</div>
           <div id="lobby-score" style="font-size:11px;color:rgba(255,255,255,.5);"></div>
+          <div id="lobby-masa-durum" style="font-size:11px;color:#88ff88;font-weight:700;display:none;"></div>
         </div>
         <button onclick="showProfile()" style="padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;border:1px solid rgba(232,200,74,.5);background:rgba(232,200,74,.15);color:#e8c84a;">Profil</button>
         <button id="logout-btn" onclick="doLogout()" style="padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;border:1px solid rgba(255,0,0,.3);background:rgba(255,0,0,.15);color:#ff8888;">Çıkış</button>
@@ -849,7 +1166,7 @@ function initLobby() {
                 <div class="oyna-btn seat-bottom" onclick="openSetup(${i})">OYNA</div>
                 <div class="oyna-btn seat-left" onclick="openSetup(${i})">OYNA</div>
                 <div class="oyna-btn seat-right" onclick="openSetup(${i})">OYNA</div>
-                <div style="position:absolute;bottom:-22px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.7);font-size:10px;padding:3px 10px;border-radius:10px;cursor:pointer;white-space:nowrap;" onclick="izleMasa(${i})">👁 İzle</div>
+                <div style="position:absolute;bottom:-22px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.7);font-size:10px;padding:3px 10px;border-radius:10px;cursor:pointer;white-space:nowrap;" onclick="izleMasaYeniSekme(${i})">👁 İzle</div>
             </div>
         `;
     }
@@ -860,12 +1177,26 @@ function initLobby() {
 function openSetup(masaNo) {
     currentMasaNo = masaNo || 1;
     isSpectating = false;
-    // Izleme otur barını gizle
     const oturBar = document.getElementById('spec-otur-bar');
     if(oturBar) oturBar.style.display = 'none';
     if(currentUser && currentProfile) document.getElementById('pname').value = currentProfile.username;
     else if(guestName) document.getElementById('pname').value = guestName;
-    document.getElementById('setup').style.display = 'flex';
+    // Yeni sekmede aç
+    const url = new URL(window.location.href);
+    url.searchParams.set('masa', currentMasaNo);
+    url.searchParams.set('mode', gameMode);
+    // Oturum bilgisini localStorage'a kaydet
+    localStorage.setItem('81okey_guest', guestName || '');
+    localStorage.setItem('81okey_gamemode', gameMode);
+    window.open(url.toString(), '_blank');
+}
+
+function izleMasaYeniSekme(masaNo) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('masa', masaNo);
+    url.searchParams.set('mode', 'izle');
+    localStorage.setItem('81okey_guest', guestName || '');
+    window.open(url.toString(), '_blank');
 }
 function closeSetup() {
     document.getElementById('setup').style.display = 'none';
@@ -986,6 +1317,7 @@ function startGame(){
     currentRoomId = 'masa-' + (currentMasaNo||1);
     document.getElementById('mode-badge').textContent = '🌐 Çevrimiçi — Masa ' + (currentMasaNo||1);
     document.getElementById('mode-badge').style.display = 'block';
+    updateMasaDurum(currentMasaNo);
     subscribeToChatRoom(currentRoomId);
     document.getElementById('chat-toggle').style.display = 'flex';
   } else {
