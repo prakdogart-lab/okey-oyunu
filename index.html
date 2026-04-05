@@ -498,11 +498,28 @@ async function doKayit() {
   showLobby();
 }
 
-function doMisafir() {
+async function doMisafir() {
   const n = prompt('Misafir adın?', 'Misafir'+Math.floor(Math.random()*1000));
   if(!n) return;
   guestName = n;
-  currentUser = null;
+  // Anonymous Supabase session oluştur
+  try {
+    const {data, error} = await supa.auth.signInAnonymously();
+    if(error) throw error;
+    currentUser = data.user;
+    // Profil oluştur
+    await supa.from('profiles').upsert({
+      id: currentUser.id,
+      username: n,
+      rating: 1000,
+      xp: 0,
+      level: 1
+    }, {onConflict: 'id', ignoreDuplicates: true});
+    await loadProfile();
+  } catch(e) {
+    console.warn('Anonymous auth başarısız, misafir olarak devam:', e);
+    currentUser = null;
+  }
   showLobby();
 }
 
@@ -526,22 +543,21 @@ function doGuestGiris() {
   doGuestCikis(false);
 }
 
-function doGuestCikis(confirm_needed = true) {
+async function doGuestCikis(confirm_needed = true) {
   if(confirm_needed && !confirm('Misafir hesabından çıkılacak. Tüm veriler silinecek. Emin misiniz?')) return;
+  // Anonymous session'ı sonlandır
+  try { await supa.auth.signOut(); } catch(e) {}
   // Tüm localStorage temizle
   localStorage.removeItem('81okey_guest');
   localStorage.removeItem('81okey_guest_id');
   localStorage.removeItem('81okey_gamemode');
-  // State sıfırla
   guestName = '';
   currentUser = null;
   currentProfile = null;
   currentRoomId = null;
-  // Auth ekranına git
   document.getElementById('lobby').style.display = 'none';
   document.getElementById('game').style.display = 'none';
   document.getElementById('auth-screen').style.display = 'flex';
-  // Giriş formunu temizle
   const emailEl = document.getElementById('giris-email');
   const sifreEl = document.getElementById('giris-sifre');
   if(emailEl) emailEl.value = '';
@@ -566,7 +582,8 @@ function showLobby() {
   const guestGirisBtn = document.getElementById('guest-giris-btn');
   const guestCikisBtn = document.getElementById('guest-cikis-btn');
   const profilBtn = document.getElementById('profil-btn');
-  if(currentUser && currentProfile) {
+  const isAnon = currentUser && currentUser.is_anonymous;
+  if(currentUser && currentProfile && !isAnon) {
     const lvl = getLevel(currentProfile.xp||0);
     nameEl.textContent = getLevelBadge(lvl.level) + ' ' + currentProfile.username;
     scoreEl.textContent = '⚡ ' + (currentProfile.rating||1000) + ' | Seviye ' + lvl.level + ' ' + lvl.name;
@@ -576,9 +593,10 @@ function showLobby() {
     if(guestCikisBtn) guestCikisBtn.style.display = 'none';
     if(profilBtn) profilBtn.style.display = '';
   } else {
-    nameEl.textContent = guestName || 'Misafir';
+    const name = (isAnon && currentProfile) ? currentProfile.username : (guestName || 'Misafir');
+    nameEl.textContent = '👤 ' + name;
     scoreEl.textContent = 'Misafir — XP kazanılmaz';
-    avEl.textContent = '👤';
+    avEl.textContent = name.charAt(0).toUpperCase();
     logoutBtn.style.display = 'none';
     if(profilBtn) profilBtn.style.display = 'none';
     if(guestGirisBtn) guestGirisBtn.style.display = '';
@@ -854,8 +872,11 @@ window.addEventListener('load', async () => {
   if(session) {
     currentUser = session.user;
     await loadProfile();
+    // Anonymous kullanıcı ise guestName'i profilden al
+    if(session.user.is_anonymous && currentProfile) {
+      guestName = currentProfile.username;
+    }
   } else {
-    // Misafir adını localStorage'dan al
     const savedGuest = localStorage.getItem('81okey_guest');
     if(savedGuest) guestName = savedGuest;
   }
